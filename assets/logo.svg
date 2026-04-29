@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#D4AF37" />
+      <stop offset="50%" stopColor="#F9E076" />
+      <stop offset="100%" stopColor="#B8860B" />
+    </linearGradient>
+    <radialGradient id="coreGradient">
+      <stop offset="0%" stopColor="#00FFFF" />
+      <stop offset="100%" stopColor="#008B8B" />
+    </radialGradient>
+  </defs>
+  <path d="M60 160 L100 40 L110 70 L70 170 Z" fill="url(#goldGradient)" />
+  <path d="M140 160 L100 40 L90 70 L130 170 Z" fill="url(#goldGradient)" />
+  <circle cx="100" cy="100" r="15" fill="url(#coreGradient)" />
+</svg>

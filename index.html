@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Khittara AI</title>
+    <script>
+      // Early error logging to catch build/loading issues
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        console.error('Boot Error:', msg, url, lineNo, columnNo, error);
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="background:#0c0c0c;color:#ef4444;padding:40px;font-family:sans-serif;height:100vh;">' +
+            '<h1 style="color:#8b5cf6">Boot Error</h1>' +
+            '<p style="color:#94a3b8">ညီမလေးတို့ site တက်မလာဖြစ်နေပါတယ်ရှင်။ နည်းပညာပိုင်းဆိုင်ရာ အမှားတစ်ခုခုရှိနေပုံရပါတယ်ရှင်။</p>' +
+            '<pre style="background:#1a1a1a;padding:20px;border-radius:12px;overflow:auto;font-size:12px;margin-top:20px;">' + msg + '\n' + url + ':' + lineNo + '</pre>' +
+            '</div>';
+        }
+        return false;
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>
+
