@@ -1,0 +1,49 @@
+name: Build Android APK
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Project
+        run: npm run build
+        env:
+            VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+
+      - name: Setup Capacitor
+        run: |
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          echo "Repairing corrupted Gradle Wrapper..."
+          rm -f gradle/wrapper/gradle-wrapper.jar
+          # Regenerate a fresh wrapper using pre-installed gradle
+          gradle wrapper --gradle-version 8.2.1
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Khittara-AI-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
