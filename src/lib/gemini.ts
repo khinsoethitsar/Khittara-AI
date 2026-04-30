@@ -63,8 +63,8 @@ function routeToBestModel(options: SendMessageOptions): string[] {
       "models/gemini-3.1-pro-preview",
       "models/gemini-3-pro-preview",
       "models/gemini-2.5-pro",
-      "models/gemini-2.0-pro-exp-02-05",
-      "models/gemini-pro-latest"
+      "models/gemini-pro-latest",
+      "models/gemini-2.0-flash"
     ];
   }
 
@@ -80,9 +80,9 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // Default to 3 Flash for speed and general intelligence
   return [
     "models/gemini-3-flash-preview",
-    "models/gemini-2.5-flash",
-    "models/gemini-2.0-flash",
-    "models/gemini-flash-latest"
+    "models/gemini-2.5-flash-lite",
+    "models/gemini-2.0-flash-lite",
+    "models/gemini-flash-lite-latest"
   ];
 }
 
@@ -90,9 +90,9 @@ export const PREFERRED_MODELS = [
   "models/gemini-3.1-pro-preview",
   "models/gemini-3-flash-preview",
   "models/gemini-2.5-pro",
-  "models/gemini-2.5-flash",
-  "models/gemini-2.0-flash",
-  "models/gemini-flash-latest"
+  "models/gemini-2.5-flash-lite",
+  "models/gemini-pro-latest",
+  "models/gemini-flash-lite-latest"
 ];
 
 export const OPENROUTER_MODELS = [
