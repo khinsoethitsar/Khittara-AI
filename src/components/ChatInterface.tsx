@@ -97,7 +97,6 @@ interface ChatInterfaceProps {
   clonedVoiceEnabled?: boolean;
   selectedModel: string;
   onModelChange: (model: string) => void;
-  groqApiKey?: string;
   onUpdateStats?: (stats: any) => void;
   onOpenProfile?: () => void;
   deepMemory?: any;
@@ -140,7 +139,6 @@ export default function ChatInterface({
   uiDensity = 16,
   selectedModel,
   onModelChange,
-  groqApiKey,
   onUpdateStats,
   onOpenProfile,
   deepMemory

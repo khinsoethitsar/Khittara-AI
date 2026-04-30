@@ -1,5 +1,4 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import Groq from "groq-sdk";
 import { ChatMessage } from "./gemini-types";
 import { analyzeUrl, formatUrlContext } from "./url-analyzer";
 import { getKnowledgeBase, getEvolutionDirectives, getDeepMemory, getPreviewError } from "./store";
@@ -18,7 +17,6 @@ export interface ThinkingStep {
 
 export interface SendMessageOptions {
   apiKey: string;
-  groqApiKey?: string;
   openrouterApiKey?: string;
   history: ChatMessage[];
   message: string;
@@ -50,14 +48,6 @@ export const PREFERRED_MODELS = [
   "models/gemini-1.5-pro-002",
   "models/gemini-1.5-flash",
   "models/gemini-1.5-flash-002"
-];
-
-export const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
-  "llama-3.2-90b-vision-preview",
-  "llama-3.1-8b-instant",
-  "mixtral-8x7b-32768",
-  "gemma2-9b-it"
 ];
 
 export const OPENROUTER_MODELS = [
@@ -306,7 +296,6 @@ function isSupportedMimeType(mimeType: string): boolean {
 export async function sendMessageAdvanced(options: SendMessageOptions): Promise<string> {
   const { 
     apiKey, 
-    groqApiKey, 
     history, 
     message, 
     contextUrl, 
@@ -319,14 +308,13 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
     deepMemory
   } = options;
 
-  const isGroqModel = selectedModel && GROQ_MODELS.includes(selectedModel);
   const isOpenRouterModel = selectedModel && OPENROUTER_MODELS.includes(selectedModel);
   const character = CHARACTERS.find(c => c.id === characterId);
 
   let steps: ThinkingStep[] = [
     { id: "analyze", type: "analyze", label: "Analyzing Request...", status: "active" },
     { id: "data", type: "search", label: "Gathering Intelligence...", status: "pending" },
-    { id: "model", type: "search", label: `Connecting to ${isOpenRouterModel ? 'OpenRouter' : isGroqModel ? 'Groq' : 'Gemini'}...`, status: "pending" },
+    { id: "model", type: "search", label: `Connecting to ${isOpenRouterModel ? 'OpenRouter' : 'Gemini'}...`, status: "pending" },
     { id: "execute", type: "execute", label: "Generating Response...", status: "pending" }
   ];
   onThinkingUpdate?.([...steps]);
@@ -439,58 +427,6 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
 
   const systemPrompt = buildSystemPrompt(mode, character, creatorMemories, isCreatorVerified, deepMemory || getDeepMemory()) + twatGyiContext;
 
-  if (isGroqModel) {
-    if (!groqApiKey) throw new Error("Groq API Key မရှိသေးပါဘူးရှင်။ Settings မှာ အရင်ဆုံး ထည့်သွင်းပေးပါဦးနော်။ ✨💖");
-    
-    try {
-      steps[0].status = "done";
-      steps[2].status = "active";
-      steps[2].label = `Connecting to Groq (${selectedModel})...`;
-      onThinkingUpdate?.([...steps]);
-
-      const groq = new Groq({ apiKey: groqApiKey, dangerouslyAllowBrowser: true });
-      
-      const completion = await groq.chat.completions.create({
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...history.map(m => ({
-            role: m.role === "user" ? "user" : "assistant" as any,
-            content: m.content
-          })),
-          { role: "user", content: message }
-        ],
-        model: selectedModel,
-        stream: true,
-      });
-
-      let fullText = "";
-      for await (const chunk of completion) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        fullText += content;
-        if (options.onStream) options.onStream(fullText);
-      }
-
-      steps[2].status = "done";
-      steps[3].status = "done";
-      onThinkingUpdate?.([...steps]);
-      return fullText;
-
-    } catch (error: any) {
-      console.error("Groq Error:", error);
-      steps[2].status = "error";
-      steps[2].label = "Groq Connection Failed";
-      onThinkingUpdate?.([...steps]);
-      
-      const isQuotaError = error.message?.includes("429") || error.message?.includes("rate_limit") || error.message?.includes("quota") || error.message?.includes("RESOURCE_EXHAUSTED");
-      
-      if (isQuotaError) {
-        throw new Error("အစ်ကိုရှင့်၊ ညီမလေး Groq model ရဲ့ စွမ်းအင် (Quota) ပြည့်သွားလို့ ခဏလောက် အနားယူပေးပါရစေဦးနော်။ ✨💖 ခဏလောက်စောင့်ပြီးမှ ပြန်မေးပေးပါရှင်။ 🥰✨");
-      }
-      
-      throw new Error(`Groq API ခေါ်ယူရာမှာ အဟန့်အတားလေးတစ်ခု ဖြစ်သွားပါတယ်ရှင်- ${error.message}`);
-    }
-  }
-
   if (isOpenRouterModel) {
     try {
       steps[0].status = "done";
@@ -545,12 +481,12 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
   const sanitizeModelName = (name: string) => {
     if (name.startsWith('models/google/')) return name.replace('models/google/', 'models/');
     if (name.startsWith('google/')) return 'models/' + name.replace('google/', '');
-    if (!name.startsWith('models/') && !GROQ_MODELS.includes(name) && !OPENROUTER_MODELS.includes(name)) return 'models/' + name;
+    if (!name.startsWith('models/') && !OPENROUTER_MODELS.includes(name)) return 'models/' + name;
     return name;
   };
 
   // Use selected model if it's a Gemini model, otherwise start with preferred models
-  const isGeminiModel = selectedModel && !isGroqModel && !isOpenRouterModel;
+  const isGeminiModel = selectedModel && !isOpenRouterModel;
   const sanitizedSelectedModel = selectedModel ? sanitizeModelName(selectedModel) : null;
   
   const modelsToTry = isGeminiModel && sanitizedSelectedModel
@@ -721,7 +657,7 @@ export async function fixCode(apiKey: string, code: string, error: string): Prom
   throw new Error("All healing models failed to fix the code.");
 }
 
-export async function validateApiKey(provider: "google" | "groq" | "openrouter" | "openai", key: string): Promise<boolean> {
+export async function validateApiKey(provider: "google" | "openrouter" | "openai", key: string): Promise<boolean> {
   if (!key) return false;
 
   try {
@@ -740,10 +676,6 @@ export async function validateApiKey(provider: "google" | "groq" | "openrouter" 
         }
       }
       return false;
-    } else if (provider === "groq") {
-      const groq = new Groq({ apiKey: key, dangerouslyAllowBrowser: true });
-      await groq.models.list();
-      return true;
     } else if (provider === "openrouter") {
       const res = await fetch("/api/openrouter", {
         method: "POST",

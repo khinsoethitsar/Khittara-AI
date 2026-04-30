@@ -7,14 +7,12 @@ import ProfilePage from "./components/ProfilePage";
 import CharacterSelection from "./components/CharacterSelection";
 import AuthScreen from "./components/AuthScreen";
 import LiveChat from "./components/LiveChat";
-import { PREFERRED_MODELS, GROQ_MODELS, OPENROUTER_MODELS, ChatMessage, type AiMode, validateApiKey } from "./lib/gemini";
+import { PREFERRED_MODELS, OPENROUTER_MODELS, ChatMessage, type AiMode, validateApiKey } from "./lib/gemini";
 import { Settings, Github, Key, X, Brain, Sparkles, Database, Zap, Trash2, LogOut, Loader2, Check, AlertCircle, Type, User as UserIcon, ChevronRight, Maximize, Cpu, Terminal, Image as ImageIcon, ShieldCheck, Compass, Layout, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   getApiKey, 
   setApiKey, 
-  getGroqApiKey,
-  setGroqApiKey,
   getOpenRouterApiKey,
   setOpenRouterApiKey,
   getOpenAiApiKey,
@@ -146,14 +144,12 @@ export default function App() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [geminiKey, setGeminiKey] = useState(getApiKey());
-  const [groqKey, setGroqKey] = useState(getGroqApiKey());
   const [openRouterKey, setOpenRouterKey] = useState(getOpenRouterApiKey());
   const [openaiKey, setOpenAiKey] = useState(getOpenAiApiKey());
   const [githubToken, setGithubTokenState] = useState(getGithubToken());
   
   const [validationStatus, setValidationStatus] = useState<Record<string, "idle" | "loading" | "success" | "error">>({
     google: "idle",
-    groq: "idle",
     openrouter: "idle",
     openai: "idle"
   });
@@ -514,7 +510,6 @@ export default function App() {
     
     try {
       setApiKey(geminiKey);
-      setGroqApiKey(groqKey);
       setOpenRouterApiKey(openRouterKey);
       setOpenAiApiKey(openaiKey);
       setGithubToken(githubToken);
@@ -696,7 +691,7 @@ export default function App() {
 
   if (isAuthLoading) return null;
 
-  const handleValidateKey = async (provider: "google" | "groq" | "openrouter" | "openai", key: string) => {
+  const handleValidateKey = async (provider: "google" | "openrouter" | "openai", key: string) => {
     if (!key) return;
     setValidationStatus(prev => ({ ...prev, [provider]: "loading" }));
     const isValid = await validateApiKey(provider, key);
@@ -766,37 +761,6 @@ export default function App() {
                       className="absolute right-3 top-3 px-3 py-1.5 bg-primary/20 hover:bg-primary/30 rounded-xl text-primary text-[10px] font-bold uppercase transition-all flex items-center gap-2"
                     >
                       {validationStatus.google === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
-                      Validate
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Groq Setup */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-white/30 flex items-center gap-2">
-                    <Terminal className="w-3 h-3" /> Groq API Key (Optional)
-                  </label>
-                  <a href="https://console.groq.com/keys" target="_blank" className="text-[10px] text-emerald-500 hover:underline flex items-center gap-1">
-                    Get Key <ChevronRight size={10} />
-                  </a>
-                </div>
-                <div className="relative group">
-                  <textarea 
-                    value={groqKey}
-                    onChange={(e) => setGroqKey(e.target.value.trim())}
-                    placeholder="gsk_..."
-                    rows={2}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all resize-none font-mono"
-                  />
-                  {groqKey && (
-                    <button 
-                      onClick={() => handleValidateKey("groq", groqKey)}
-                      disabled={validationStatus.groq === "loading"}
-                      className="absolute right-3 top-3 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-xl text-emerald-500 text-[10px] font-bold uppercase transition-all flex items-center gap-2"
-                    >
-                      {validationStatus.groq === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
                       Validate
                     </button>
                   )}
@@ -1001,7 +965,6 @@ export default function App() {
                   uiDensity={uiDensity}
                   selectedModel={selectedModel}
                   onModelChange={setSelectedModel}
-                  groqApiKey={groqKey}
                   onOpenProfile={() => setShowProfile(true)}
                   deepMemory={deepMemory}
                   onUpdateStats={async (stats) => {
@@ -1157,54 +1120,6 @@ export default function App() {
                       <p className="text-[9px] text-white/20 uppercase tracking-widest px-1">
                         {selectedModel.includes('3.1') ? '🧠 Precision & Intelligence (Advanced Tasks)' : selectedModel.includes('2.0') ? '⚡ Real-time & High Performance' : selectedModel.includes('llama') ? '🚀 Groq Acceleration' : '✨ Standard Generation'}
                       </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-white/30 flex items-center gap-2">
-                          <Terminal className="w-3 h-3" /> Groq API Key
-                        </label>
-                        {validationStatus.groq !== "idle" && (
-                          <span className={cn(
-                            "text-[9px] font-bold uppercase px-2 py-0.5 rounded-full",
-                            validationStatus.groq === "success" ? "bg-emerald-500/10 text-emerald-500" : 
-                            validationStatus.groq === "error" ? "bg-rose-500/10 text-rose-500" : "bg-white/5 text-white/30"
-                          )}>
-                            {validationStatus.groq}
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative group">
-                        <textarea 
-                          value={groqKey}
-                          onChange={(e) => setGroqKey(e.target.value.trim())}
-                          placeholder="gsk_..."
-                          autoComplete="off"
-                          spellCheck={false}
-                          rows={2}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-all resize-none font-mono"
-                        />
-                        <div className="absolute right-3 top-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {groqKey && (
-                            <button 
-                              onClick={() => handleValidateKey("groq", groqKey)}
-                              disabled={validationStatus.groq === "loading"}
-                              className="p-2 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-xl text-emerald-500 transition-all text-[10px] font-bold uppercase flex items-center gap-1.5"
-                            >
-                              {validationStatus.groq === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                              Validate
-                            </button>
-                          )}
-                          {groqKey && (
-                            <button 
-                              onClick={() => setGroqKey("")}
-                              className="p-2 hover:bg-white/10 rounded-xl text-white/20 hover:text-white transition-all"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
                     </div>
 
                     <div className="space-y-3">

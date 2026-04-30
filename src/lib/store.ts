@@ -29,7 +29,6 @@ export interface Task {
 const PROMPTS_KEY = "kalaung_prompts";
 const API_KEY_KEY = "kalaung_gemini_key";
 const OPENROUTER_API_KEY_KEY = "kalaung_openrouter_key";
-const GROQ_API_KEY_KEY = "kalaung_groq_key";
 const LANG_KEY = "kalaung_lang";
 const KB_KEY = "kalaung_knowledge_base";
 const MODE_KEY = "kalaung_ai_mode";
@@ -213,28 +212,6 @@ export function setApiKey(key: string) {
   } catch (e) { console.error(e); }
 }
 
-export function getGroqApiKey(): string {
-  if (!isStorageAvailable()) return "";
-  try {
-    const savedKey = localStorage.getItem(GROQ_API_KEY_KEY);
-    if (savedKey) return savedKey;
-
-    const viteKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (viteKey && viteKey !== "MY_GROQ_API_KEY") return viteKey;
-
-    return "";
-  } catch {
-    return "";
-  }
-}
-
-export function setGroqApiKey(key: string) {
-  if (!isStorageAvailable()) return;
-  try {
-    localStorage.setItem(GROQ_API_KEY_KEY, key);
-  } catch (e) { console.error(e); }
-}
-
 export function getOpenRouterApiKey(): string {
   if (!isStorageAvailable()) return "";
   try {
@@ -352,10 +329,7 @@ export function getModel(): string {
     if (model.startsWith('models/google/')) model = model.replace('models/google/', 'models/');
     if (model.startsWith('google/')) model = 'models/' + model.replace('google/', '');
 
-    // Check if it's a Groq model (llama, mixtral, gemma2)
-    const isGroq = model.includes("llama") || model.includes("mixtral") || model.includes("gemma2");
-    
-    if (!isGroq && !model.startsWith("models/")) {
+    if (!model.startsWith("models/")) {
       return `models/${model}`;
     }
     return model;
