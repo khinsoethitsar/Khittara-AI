@@ -1,5 +1,5 @@
 
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import { 
   collection, 
   doc, 
@@ -21,11 +21,46 @@ export interface CreatorMemory {
 
 const COLLECTION_NAME = "creator_memories";
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path
+  };
+  console.error(`Firestore Error [${operationType}] on [${path}]:`, JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 export async function learnFactAboutCreator(fact: string, source: "guest" | "creator" = "guest") {
+  const memoryId = `mem_${Date.now()}`;
+  const memoryRef = doc(db, COLLECTION_NAME, memoryId);
+  
   try {
-    const memoryId = `mem_${Date.now()}`;
-    const memoryRef = doc(db, COLLECTION_NAME, memoryId);
-    
     await setDoc(memoryRef, {
       id: memoryId,
       fact,
@@ -35,7 +70,11 @@ export async function learnFactAboutCreator(fact: string, source: "guest" | "cre
     
     return true;
   } catch (error) {
-    console.error("Error learning fact:", error);
+    try {
+      handleFirestoreError(error, OperationType.WRITE, `${COLLECTION_NAME}/${memoryId}`);
+    } catch (e) {
+      // Just log and return false for the UI
+    }
     return false;
   }
 }
@@ -57,6 +96,11 @@ export async function getCreatorMemories(): Promise<CreatorMemory[]> {
     });
   } catch (error) {
     console.error("Error getting creator memories:", error);
+    try {
+      handleFirestoreError(error, OperationType.GET, COLLECTION_NAME);
+    } catch (e) {
+      // Return empty array
+    }
     return [];
   }
 }
