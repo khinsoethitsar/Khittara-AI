@@ -91,6 +91,18 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "user_profile", "current_context", "last_interaction_mood", "updatedAt"]
+    },
+    "CreatorMemory": {
+      "title": "CreatorMemory",
+      "description": "Fact about the creator (MinThitSarAung) learned by the AI",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fact": { "type": "string" },
+        "source": { "type": "string", "enum": ["guest", "creator"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "fact", "source", "timestamp"]
     }
   },
   "firestore": {
@@ -113,6 +125,10 @@
     "/memories/{userId}": {
       "schema": "Memory",
       "description": "Extracted user memories"
+    },
+    "/creator_memories/{memoryId}": {
+      "schema": "CreatorMemory",
+      "description": "Global knowledge about the creator"
     }
   }
 }

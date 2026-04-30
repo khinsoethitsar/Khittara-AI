@@ -1117,7 +1117,6 @@ export default function ChatInterface({
     try {
       const responsePromise = sendMessageAdvanced({
         apiKey,
-        groqApiKey,
         openrouterApiKey: openRouterApiKey,
         history: messages,
         message: userMessage,

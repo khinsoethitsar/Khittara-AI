@@ -1098,13 +1098,6 @@ export default function App() {
                               </option>
                             ))}
                           </optgroup>
-                          <optgroup label="GROQ MODELS" className="bg-[#161616] text-white/50">
-                            {GROQ_MODELS.map((m) => (
-                              <option key={m} value={m} className="bg-[#161616] text-white">
-                                {m.toUpperCase()}
-                              </option>
-                            ))}
-                          </optgroup>
                           <optgroup label="OPENROUTER MODELS" className="bg-[#161616] text-white/50">
                             {OPENROUTER_MODELS.map((m) => (
                               <option key={m} value={m} className="bg-[#161616] text-white">
@@ -1118,7 +1111,7 @@ export default function App() {
                         </div>
                       </div>
                       <p className="text-[9px] text-white/20 uppercase tracking-widest px-1">
-                        {selectedModel.includes('3.1') ? '🧠 Precision & Intelligence (Advanced Tasks)' : selectedModel.includes('2.0') ? '⚡ Real-time & High Performance' : selectedModel.includes('llama') ? '🚀 Groq Acceleration' : '✨ Standard Generation'}
+                        {selectedModel.includes('3.1') ? '🧠 Precision & Intelligence (Advanced Tasks)' : selectedModel.includes('2.0') ? '⚡ Real-time & High Performance' : '✨ Standard Generation'}
                       </p>
                     </div>
 

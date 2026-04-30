@@ -132,5 +132,12 @@ service cloud.firestore {
                       request.resource.data.userId == request.auth.uid &&
                       isValidTimestamp(request.resource.data.updatedAt);
     }
+
+    match /creator_memories/{memoryId} {
+      // Global knowledge about creator: Publicly readable for guests to know the creator
+      allow read: if true; 
+      // Only admin (creator) can write/update/delete facts
+      allow write: if isAdmin();
+    }
   }
 }
