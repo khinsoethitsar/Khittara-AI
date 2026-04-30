@@ -33,21 +33,63 @@ export interface SendMessageOptions {
     trimEnd?: string 
   }[];
   mode?: AiMode;
-  model?: string;
   characterId?: string;
   onThinkingUpdate?: (steps: ThinkingStep[]) => void;
   onStream?: (text: string) => void;
 }
 
+/**
+ * Smart Model Router
+ * Automatically selects the best Gemini model based on prompt complexity,
+ * file presence, and task type.
+ */
+function routeToBestModel(options: SendMessageOptions): string[] {
+  const { message, files, mode } = options;
+  const prompt = message.toLowerCase();
+  const hasFiles = files && files.length > 0;
+  
+  // 1. Check for Coding or Architecture tasks
+  const isCoding = prompt.includes("code") || prompt.includes("react") || prompt.includes("fix") || prompt.includes("error") || prompt.includes("debug") || mode === "arindama";
+  
+  // 2. Check for deep analysis or creative writing
+  const isCreativeHeader = prompt.includes("write") || prompt.includes("essay") || prompt.includes("story") || prompt.includes("poem");
+  
+  // 3. Check for specific reasoning requests
+  const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
+
+  // Priority stack of models based on classification
+  if (isCoding || isReasoning || hasFiles) {
+    // Coding & Reasoning benefit from 1.5 Pro's depth or 2.0 Thinking's chain-of-thought
+    return [
+      "gemini-2.0-pro-exp-02-05",
+      "gemini-1.5-pro",
+      "gemini-2.0-thinking-exp-01-21",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro-002"
+    ];
+  }
+
+  if (isCreativeHeader) {
+    return [
+      "gemini-1.5-pro",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro-002"
+    ];
+  }
+
+  // Default to 2.0 Flash for speed and general intelligence
+  return [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro"
+  ];
+}
+
 export const PREFERRED_MODELS = [
-  "models/gemini-2.0-flash",
-  "models/gemini-2.0-flash-001",
-  "models/gemini-2.0-pro-exp-02-05",
-  "models/gemini-2.0-thinking-exp-01-21",
-  "models/gemini-1.5-pro",
-  "models/gemini-1.5-pro-002",
-  "models/gemini-1.5-flash",
-  "models/gemini-1.5-flash-002"
+  "gemini-2.0-flash",
+  "gemini-1.5-pro",
+  "gemini-2.0-thinking-exp-01-21",
+  "gemini-1.5-flash"
 ];
 
 export const OPENROUTER_MODELS = [
@@ -300,7 +342,6 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
     message, 
     contextUrl, 
     mode = "kalaung", 
-    model: selectedModel, 
     onThinkingUpdate, 
     characterId,
     creatorMemories,
@@ -308,13 +349,12 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
     deepMemory
   } = options;
 
-  const isOpenRouterModel = selectedModel && OPENROUTER_MODELS.includes(selectedModel);
   const character = CHARACTERS.find(c => c.id === characterId);
 
   let steps: ThinkingStep[] = [
     { id: "analyze", type: "analyze", label: "Analyzing Request...", status: "active" },
     { id: "data", type: "search", label: "Gathering Intelligence...", status: "pending" },
-    { id: "model", type: "search", label: `Connecting to ${isOpenRouterModel ? 'OpenRouter' : 'Gemini'}...`, status: "pending" },
+    { id: "model", type: "search", label: `Smart Routing AI...`, status: "pending" },
     { id: "execute", type: "execute", label: "Generating Response...", status: "pending" }
   ];
   onThinkingUpdate?.([...steps]);
@@ -427,71 +467,10 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
 
   const systemPrompt = buildSystemPrompt(mode, character, creatorMemories, isCreatorVerified, deepMemory || getDeepMemory()) + twatGyiContext;
 
-  if (isOpenRouterModel) {
-    try {
-      steps[0].status = "done";
-      steps[2].status = "active";
-      steps[2].label = `Connecting to OpenRouter (${selectedModel})...`;
-      onThinkingUpdate?.([...steps]);
-
-      const response = await fetch("/api/openrouter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: selectedModel,
-          apiKey: options.openrouterApiKey,
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...history.map(m => ({
-              role: m.role === "user" ? "user" : "assistant",
-              content: m.content
-            })),
-            { role: "user", content: message }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to connect to OpenRouter");
-      }
-
-      const data = await response.json();
-      const fullText = data.choices[0]?.message?.content || "";
-
-      if (options.onStream) options.onStream(fullText);
-
-      steps[2].status = "done";
-      steps[3].status = "done";
-      onThinkingUpdate?.([...steps]);
-      return fullText;
-
-    } catch (error: any) {
-      console.error("OpenRouter Error:", error);
-      steps[2].status = "error";
-      steps[2].label = "OpenRouter Connection Failed";
-      onThinkingUpdate?.([...steps]);
-      throw new Error(`OpenRouter API ခေါ်ယူရာမှာ အဟန့်အတားလေးတစ်ခု ဖြစ်သွားပါတယ်ရှင်- ${error.message}`);
-    }
-  }
-
   const ai = new GoogleGenAI({ apiKey });
-
-  // Sanitize model name for Google Gen AI (remove incorrect prefixes)
-  const sanitizeModelName = (name: string) => {
-    if (name.startsWith('models/google/')) return name.replace('models/google/', 'models/');
-    if (name.startsWith('google/')) return 'models/' + name.replace('google/', '');
-    if (!name.startsWith('models/') && !OPENROUTER_MODELS.includes(name)) return 'models/' + name;
-    return name;
-  };
-
-  // Use selected model if it's a Gemini model, otherwise start with preferred models
-  const isGeminiModel = selectedModel && !isOpenRouterModel;
-  const sanitizedSelectedModel = selectedModel ? sanitizeModelName(selectedModel) : null;
   
-  const modelsToTry = isGeminiModel && sanitizedSelectedModel
-    ? [sanitizedSelectedModel, ...PREFERRED_MODELS.filter(m => m !== sanitizedSelectedModel)]
-    : PREFERRED_MODELS;
+  // Use Smart Router to pick the best model stack
+  const modelsToTry = routeToBestModel(options);
 
   let lastError: any = null;
 

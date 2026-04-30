@@ -31,8 +31,6 @@ import {
   setFontSize,
   getUiDensity,
   setUiDensity,
-  getModel,
-  setModel,
   getTasks,
   saveTasks,
   getDeepMemory,
@@ -157,7 +155,6 @@ export default function App() {
   const [evolutionDirectives, setEvolutionDirectivesState] = useState(getEvolutionDirectives());
   const [fontSize, setFontSizeState] = useState(getFontSize());
   const [uiDensity, setUiDensityState] = useState(getUiDensity());
-  const [selectedModel, setSelectedModel] = useState(getModel());
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [saveSettingsSuccess, setSaveSettingsSuccess] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
@@ -521,7 +518,6 @@ export default function App() {
       setEvolutionDirectives(evolutionDirectives);
       setFontSize(fontSize);
       setUiDensity(uiDensity);
-      setModel(selectedModel);
       
       setSaveSettingsSuccess(true);
       setTimeout(() => {
@@ -967,8 +963,6 @@ export default function App() {
                   userProfile={userProfile}
                   quotaExceeded={quotaExceeded}
                   uiDensity={uiDensity}
-                  selectedModel={selectedModel}
-                  onModelChange={setSelectedModel}
                   onOpenProfile={() => setShowProfile(true)}
                   deepMemory={deepMemory}
                   onUpdateStats={async (stats) => {
@@ -1083,40 +1077,6 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-white/30 flex items-center gap-2">
-                        <Cpu className="w-3 h-3" /> Preferred Gemini Model
-                      </label>
-                      <div className="relative">
-                        <select 
-                          value={selectedModel}
-                          onChange={(e) => setSelectedModel(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-all appearance-none cursor-pointer"
-                        >
-                          <optgroup label="GEMINI MODELS" className="bg-[#161616] text-white/50">
-                            {PREFERRED_MODELS.map((m) => (
-                              <option key={m} value={m} className="bg-[#161616] text-white">
-                                {m.replace("models/", "").toUpperCase()}
-                              </option>
-                            ))}
-                          </optgroup>
-                          <optgroup label="OPENROUTER MODELS" className="bg-[#161616] text-white/50">
-                            {OPENROUTER_MODELS.map((m) => (
-                              <option key={m} value={m} className="bg-[#161616] text-white">
-                                {m.toUpperCase()}
-                              </option>
-                            ))}
-                          </optgroup>
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/30">
-                          <ChevronRight className="rotate-90 w-4 h-4" />
-                        </div>
-                      </div>
-                      <p className="text-[9px] text-white/20 uppercase tracking-widest px-1">
-                        {selectedModel.includes('3.1') ? '🧠 Precision & Intelligence (Advanced Tasks)' : selectedModel.includes('2.0') ? '⚡ Real-time & High Performance' : '✨ Standard Generation'}
-                      </p>
                     </div>
 
                     <div className="space-y-3">

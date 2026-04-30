@@ -36,7 +36,6 @@ const OPENAI_API_KEY_KEY = "kalaung_openai_key";
 const EVOLUTION_KEY = "kalaung_evolution_directives";
 const GITHUB_TOKEN_KEY = "kalaung_github_token";
 const CHAT_HISTORY_KEY = "kalaung_chat_history";
-const MODEL_KEY = "kalaung_model";
 const REPO_INFO_KEY = "kalaung_repo_info";
 const FONT_SIZE_KEY = "kalaung_font_size";
 const UI_DENSITY_KEY = "kalaung_ui_density";
@@ -316,32 +315,6 @@ export function setGithubToken(token: string) {
   if (!isStorageAvailable()) return;
   try {
     localStorage.setItem(GITHUB_TOKEN_KEY, token);
-  } catch (e) { console.error(e); }
-}
-
-export function getModel(): string {
-  if (!isStorageAvailable()) return "models/gemini-2.0-flash";
-  try {
-    let model = localStorage.getItem(MODEL_KEY);
-    if (!model) return "models/gemini-2.0-flash";
-    
-    // Sanitize: Remove incorrect prefixes often found in OpenRouter or auto-completions
-    if (model.startsWith('models/google/')) model = model.replace('models/google/', 'models/');
-    if (model.startsWith('google/')) model = 'models/' + model.replace('google/', '');
-
-    if (!model.startsWith("models/")) {
-      return `models/${model}`;
-    }
-    return model;
-  } catch {
-    return "models/gemini-2.0-flash";
-  }
-}
-
-export function setModel(model: string) {
-  if (!isStorageAvailable()) return;
-  try {
-    localStorage.setItem(MODEL_KEY, model);
   } catch (e) { console.error(e); }
 }
 

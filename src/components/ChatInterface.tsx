@@ -59,8 +59,6 @@ import {
   getAiMode, 
   setAiMode, 
   getOpenRouterApiKey,
-  getModel,
-  setModel,
   getSavedRepoInfo,
   saveRepoInfo,
   addToKnowledgeBase,
@@ -95,8 +93,6 @@ interface ChatInterfaceProps {
   quotaExceeded?: boolean;
   uiDensity?: number;
   clonedVoiceEnabled?: boolean;
-  selectedModel: string;
-  onModelChange: (model: string) => void;
   onUpdateStats?: (stats: any) => void;
   onOpenProfile?: () => void;
   deepMemory?: any;
@@ -137,8 +133,6 @@ export default function ChatInterface({
   userProfile,
   quotaExceeded,
   uiDensity = 16,
-  selectedModel,
-  onModelChange,
   onUpdateStats,
   onOpenProfile,
   deepMemory
@@ -1129,7 +1123,6 @@ export default function ChatInterface({
           trimEnd: f.trimEnd
         })),
         mode,
-        model: selectedModel,
         characterId: userProfile?.character,
         isCreatorVerified: isVerifyingNow || isCreatorVerified,
         creatorMemories: isVerifyingNow || isCreatorVerified ? creatorMemories : [],
@@ -1771,7 +1764,7 @@ ${stagedCount} architecture changes staged.
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-white/20 border-b border-white/5 pb-2">
                   <div className="flex items-center gap-2">
                     <Brain className="w-3 h-3" />
-                    <span>Processing with {selectedModel}</span>
+                    <span>Processing with Smart Routing ✨</span>
                   </div>
                   <span>{executionTime}s</span>
                 </div>
