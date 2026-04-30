@@ -42,12 +42,19 @@ export async function learnFactAboutCreator(fact: string, source: "guest" | "cre
 
 export async function getCreatorMemories(): Promise<CreatorMemory[]> {
   try {
-    const q = query(collection(db, COLLECTION_NAME), orderBy("timestamp", "desc"));
+    const q = query(collection(db, COLLECTION_NAME));
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => ({
+    // Sort in memory to avoid indexing requirements for now
+    const memories = snapshot.docs.map(doc => ({
       ...doc.data()
     })) as CreatorMemory[];
+
+    return memories.sort((a, b) => {
+      const timeA = a.timestamp?.seconds || 0;
+      const timeB = b.timestamp?.seconds || 0;
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error("Error getting creator memories:", error);
     return [];
