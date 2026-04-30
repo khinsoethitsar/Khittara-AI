@@ -291,12 +291,14 @@ export default function App() {
 
     const q = query(
       collection(db, "sessions"),
-      where("userId", "==", user.uid),
-      orderBy("updatedAt", "desc")
+      where("userId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const firestoreSessions = snapshot.docs.map(doc => doc.data() as ChatSession);
+      // Sort manually to avoid index requirement
+      firestoreSessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      
       setSessions(firestoreSessions);
       
       // If we just logged in and have sessions, auto-load the most recent one
@@ -340,12 +342,14 @@ export default function App() {
 
     const q = query(
       collection(db, "tasks"),
-      where("userId", "==", user.uid),
-      orderBy("updatedAt", "desc")
+      where("userId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const firestoreTasks = snapshot.docs.map(doc => doc.data() as Task);
+      // Sort manually to avoid index requirement
+      firestoreTasks.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      
       setTasks(firestoreTasks);
       saveTasks(firestoreTasks);
     }, (error: any) => {
