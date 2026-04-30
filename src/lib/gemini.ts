@@ -57,39 +57,42 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // 3. Check for specific reasoning requests
   const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
 
-  // Priority stack of models based on classification
+  // Priority stack based on the provided list of 38 available models
   if (isCoding || isReasoning || hasFiles) {
-    // Coding & Reasoning benefit from 1.5 Pro's depth or 2.0 Thinking's chain-of-thought
     return [
-      "gemini-2.0-pro-exp-02-05",
-      "gemini-1.5-pro",
-      "gemini-2.0-thinking-exp-01-21",
-      "gemini-2.0-flash",
-      "gemini-1.5-pro-002"
+      "models/gemini-3.1-pro-preview",
+      "models/gemini-3-pro-preview",
+      "models/gemini-2.5-pro",
+      "models/gemini-2.0-pro-exp-02-05",
+      "models/gemini-pro-latest"
     ];
   }
 
   if (isCreativeHeader) {
     return [
-      "gemini-1.5-pro",
-      "gemini-2.0-flash",
-      "gemini-1.5-pro-002"
+      "models/gemini-3-pro-preview",
+      "models/gemini-2.5-pro",
+      "models/gemini-2.5-flash",
+      "models/gemini-2.0-flash"
     ];
   }
 
-  // Default to 2.0 Flash for speed and general intelligence
+  // Default to 3 Flash for speed and general intelligence
   return [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro"
+    "models/gemini-3-flash-preview",
+    "models/gemini-2.5-flash",
+    "models/gemini-2.0-flash",
+    "models/gemini-flash-latest"
   ];
 }
 
 export const PREFERRED_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-1.5-pro",
-  "gemini-2.0-thinking-exp-01-21",
-  "gemini-1.5-flash"
+  "models/gemini-3.1-pro-preview",
+  "models/gemini-3-flash-preview",
+  "models/gemini-2.5-pro",
+  "models/gemini-2.5-flash",
+  "models/gemini-2.0-flash",
+  "models/gemini-flash-latest"
 ];
 
 export const OPENROUTER_MODELS = [
