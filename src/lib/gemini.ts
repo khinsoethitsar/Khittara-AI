@@ -63,6 +63,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
       "models/gemini-3.1-pro-preview",
       "models/gemini-3-pro-preview",
       "models/gemini-2.5-pro",
+      "models/gemini-2.0-flash-001",
       "models/gemini-pro-latest",
       "models/gemini-2.0-flash"
     ];
@@ -73,6 +74,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
       "models/gemini-3-pro-preview",
       "models/gemini-2.5-pro",
       "models/gemini-2.5-flash",
+      "models/gemini-2.0-flash-lite",
       "models/gemini-2.0-flash"
     ];
   }
@@ -81,8 +83,9 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   return [
     "models/gemini-3-flash-preview",
     "models/gemini-2.5-flash-lite",
-    "models/gemini-2.0-flash-lite",
-    "models/gemini-flash-lite-latest"
+    "models/gemini-3.1-flash-lite-preview",
+    "models/gemini-flash-lite-latest",
+    "models/gemini-2.0-flash"
   ];
 }
 
@@ -91,7 +94,7 @@ export const PREFERRED_MODELS = [
   "models/gemini-3-flash-preview",
   "models/gemini-2.5-pro",
   "models/gemini-2.5-flash-lite",
-  "models/gemini-pro-latest",
+  "models/gemini-3.1-flash-lite-preview",
   "models/gemini-flash-lite-latest"
 ];
 
