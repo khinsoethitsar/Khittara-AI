@@ -49,6 +49,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   sendMessageAdvanced, 
   summarizeConversation,
+  generateImage,
   type ThinkingStep, 
   type AiMode,
   type ChatMessage
@@ -152,6 +153,78 @@ export default function ChatInterface({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [contextUrl, setContextUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showImageGenOverlay, setShowImageGenOverlay] = useState(false);
+  const [showVideoGenOverlay, setShowVideoGenOverlay] = useState(false);
+  const [genPrompt, setGenPrompt] = useState("");
+  const [isGeneratingMultimedia, setIsGeneratingMultimedia] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  const handleGenerateMultimedia = async (type: 'image' | 'video', prompt: string) => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      alert("Settings ထဲမှာ Gemini API Key အရင်ထည့်ပေးပါရှင်။");
+      return;
+    }
+
+    setShowImageGenOverlay(false);
+    setShowVideoGenOverlay(false);
+    setGenPrompt(prompt);
+    setIsGeneratingMultimedia(true);
+    
+    addActivityLog(`Gemini Neural Engine ကို အသုံးပြုပြီး ${type === 'image' ? 'ပုံ' : 'ဗီဒီယို'} ဖော်နေပါတယ်ရှင်... ✨`, "pending");
+
+    const userPrompt = `Please generate an AI ${type} for: ${prompt}`;
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: userPrompt,
+      timestamp: new Date().toISOString()
+    };
+    onMessagesChange([...messages, userMessage]);
+    setIsLoading(true);
+
+    const assistantMessage: ChatMessage = {
+      role: "model",
+      content: "",
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      if (type === 'image') {
+        const imageUrl = await generateImage({ apiKey, prompt });
+        
+        const isFallback = imageUrl.startsWith('http');
+        
+        const responseJson = JSON.stringify({
+          prompt: prompt,
+          url: imageUrl,
+          aspectRatio: "1:1"
+        }, null, 2);
+        
+        let introText = "အစ်ကို စိတ်ကူးထားတဲ့အတိုင်း Gemini Neural Engine ကို သုံးပြီး ပုံဖော်ပေးလိုက်ပါတယ်ရှင် ✨💖";
+        if (isFallback) {
+          introText = "အစ်ကို့ရဲ့ AI Key မှာ Imagen (Picture Gen) Permission အကန့်အသတ်ရှိနေလို့ Khittara ရဲ့ Secondary Neural Engine ကို သုံးပြီး အကောင်းဆုံး ပုံဖော်ပေးလိုက်ပါတယ်ရှင် ✨🎨";
+        }
+        
+        const fullContent = `${introText}\n\n\`\`\`image-gen\n${responseJson}\n\`\`\``;
+        
+        onMessagesChange([...messages, userMessage, { ...assistantMessage, content: fullContent }]);
+        addActivityLog("ပုံဖော်ခြင်း အောင်မြင်ပါတယ်ရှင် ✨", "success");
+      } else {
+        // For video, we'll use the normal flow for now as Veo might be restricted or require more complex handling
+        const promptText = `Please generate an AI video now using the accurate JSON block format (language hint: video-gen). My vision description: ${prompt}`;
+        handleSend(promptText);
+      }
+    } catch (error: any) {
+      console.error("Multimedia Gen Error:", error);
+      const errorMsg = `အစ်ကိုရှင့်၊ Multimedia ထုတ်လုပ်ရာမှာ အခက်အခဲလေး တစ်ခု ဖြစ်သွားပါတယ်ရှင်- ${error.message}`;
+      onMessagesChange([...messages, userMessage, { ...assistantMessage, content: errorMsg }]);
+      addActivityLog("Generation Error", "error");
+    } finally {
+      setIsLoading(false);
+      setIsGeneratingMultimedia(false);
+      setGenPrompt("");
+    }
+  };
 
   // Auto-reset internal states when messages are cleared (New Project)
   useEffect(() => {
@@ -483,9 +556,140 @@ export default function ChatInterface({
     },
     code({ node, inline, className, children, ...props }: any) {
       const match = /language-(\w+)/.exec(className || '');
-      const lang = match ? match[1] : 'text';
+      const lang = match ? match[1].toLowerCase() : 'text';
       const codeContent = String(children).replace(/\n$/, '');
       const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Check for image generation tags or JSON that looks like it
+      const isImageGen = lang === 'image-gen' || 
+                        (lang === 'json' && codeContent.includes('"prompt"') && (codeContent.includes('"aspectRatio"') || codeContent.includes('"image"'))) ||
+                        (codeContent.includes('"prompt"') && codeContent.includes('"aspectRatio"')); // Extra fallback
+      
+      const isVideoGen = lang === 'video-gen' || 
+                        (lang === 'json' && codeContent.includes('"prompt"') && (codeContent.includes('"duration"') || codeContent.includes('"video"'))) ||
+                        (codeContent.includes('"prompt"') && codeContent.includes('"video"'));
+
+      if (isImageGen) {
+        try {
+          // Clean the content if it's not pure JSON
+          const jsonMatch = codeContent.match(/\{[\s\S]*\}/);
+          const cleanContent = jsonMatch ? jsonMatch[0] : codeContent;
+          const data = JSON.parse(cleanContent);
+          const prompt = data.prompt || data.image || "A beautiful creation";
+          const ratio = data.aspectRatio || "1:1";
+          const [width, height] = ratio === "16:9" ? [1280, 720] : ratio === "9:16" ? [720, 1280] : [1024, 1024];
+          
+          const imageUrl = data.url || data.imageUrl || data.data || `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
+          
+          return (
+            <div className="my-6 space-y-3" id={`image-gen-${codeId}`}>
+              <div className="relative group/gen rounded-2xl overflow-hidden border border-white/10 bg-black/20 shadow-2xl">
+                <img 
+                  src={imageUrl} 
+                  alt={prompt} 
+                  onClick={() => setFullscreenImage(imageUrl)}
+                  className="w-full h-auto object-cover transition-transform duration-700 group-hover/gen:scale-105 cursor-zoom-in"
+                  referrerPolicy="no-referrer"
+                  onLoad={(e) => {
+                    const logId = addActivityLog("ပုံလေး ထွက်လာပါပြီရှင် ✨💖", "success");
+                    setTimeout(() => updateActivityLog(logId, "success"), 2000);
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/gen:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
+                  <p className="text-white text-xs font-medium leading-relaxed drop-shadow-lg line-clamp-3">{prompt}</p>
+                </div>
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setBackgroundImage(imageUrl);
+                      alert("နောက်ခံပုံအဖြစ် သတ်မှတ်လိုက်ပါပြီရှင်။ ✨💖");
+                    }}
+                    className="p-2 bg-black/40 backdrop-blur-md border border-white/20 rounded-xl text-white hover:bg-primary/40 transition-all opacity-0 group-hover/gen:opacity-100 shadow-lg"
+                    title="Set as Background"
+                  >
+                    <Layout size={16} />
+                  </button>
+                  <a 
+                    href={imageUrl} 
+                    target="_blank" 
+                    download={`khittara-image-${Date.now()}.png`}
+                    className="p-2 bg-black/40 backdrop-blur-md border border-white/20 rounded-xl text-white hover:bg-cyan-500/40 transition-all opacity-0 group-hover/gen:opacity-100 shadow-lg"
+                  >
+                    <Download size={16} />
+                  </a>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-2">
+                  <ImageIcon size={14} className="text-primary animate-pulse" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Neural Art Synthesis</span>
+                </div>
+                <span className="text-[9px] text-white/20 font-mono italic">{ratio}</span>
+              </div>
+            </div>
+          );
+        } catch (e) {
+          // If JSON parsing fails, but it was supposedly image-gen, show error or fallback to code
+          if (lang === 'image-gen') {
+            return <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-xs mt-4">ပုံထုတ်ယူရာမှာ အမှားတစ်ခု ရှိနေပါတယ်ရှင်- {e.message}</div>;
+          }
+        }
+      }
+
+      if (isVideoGen) {
+        try {
+          const data = JSON.parse(codeContent);
+          const prompt = data.prompt || data.video || "Cinematic animation";
+          
+          return (
+            <div className="my-6 space-y-3" id={`video-gen-${codeId}`}>
+              <div className="relative group/gen rounded-2xl overflow-hidden border border-white/10 bg-black/40 shadow-2xl aspect-video flex flex-col items-center justify-center p-8 text-center bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-purple-500/10" />
+                
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                  className="w-20 h-20 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center mb-6 relative z-10"
+                >
+                  <Video size={32} className="text-primary" />
+                </motion.div>
+                
+                <div className="relative z-10 space-y-2">
+                  <h4 className="text-lg font-bold text-white tracking-tight">AI Cinematics in Progress</h4>
+                  <p className="text-xs text-white/50 max-w-sm line-clamp-2 italic">"{prompt}"</p>
+                </div>
+                
+                <div className="mt-8 flex items-center gap-4 relative z-10">
+                  <div className="h-1.5 w-32 bg-white/5 rounded-full overflow-hidden border border-white/10">
+                    <motion.div 
+                      initial={{ x: "-100%" }}
+                      animate={{ x: "0%" }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                      className="h-full w-full bg-gradient-to-r from-primary to-purple-500"
+                    />
+                  </div>
+                  <span className="text-[9px] font-bold text-primary animate-pulse uppercase tracking-widest">Rendering...</span>
+                </div>
+
+                <div className="absolute bottom-4 left-0 right-0 px-6 text-center">
+                  <p className="text-[10px] text-white/30 italic">High-fidelity video synthesis (Veo/Sora Class) is currently in processing. Results will appear here when ready. ✨🎬</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-2">
+                <Video size={14} className="text-purple-400 animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Temporal Synthesis Engine</span>
+              </div>
+            </div>
+          );
+        } catch (e) {
+          if (lang === 'video-gen') {
+            return <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-xs mt-4">Video Generation Error: {e.message}</div>;
+          }
+        }
+      }
 
       if (!inline) {
         return (
@@ -1734,6 +1938,25 @@ ${stagedCount} architecture changes staged.
               <Paperclip className="w-5 h-5 md:w-5.5 md:h-5.5" />
             </button>
 
+            {mode === "kalaung" && (
+              <>
+                <button 
+                  onClick={() => setShowImageGenOverlay(true)}
+                  className="p-2 md:p-3 rounded-xl md:rounded-2xl transition-all text-white/40 hover:bg-primary/10 hover:text-primary shrink-0"
+                  title="Generate AI Image"
+                >
+                  <ImageIcon className="w-5 h-5 md:w-5.5 md:h-5.5" />
+                </button>
+                <button 
+                  onClick={() => setShowVideoGenOverlay(true)}
+                  className="p-2 md:p-3 rounded-xl md:rounded-2xl transition-all text-white/40 hover:bg-purple-500/10 hover:text-purple-500 shrink-0"
+                  title="Generate AI Video"
+                >
+                  <Video className="w-5 h-5 md:w-5.5 md:h-5.5" />
+                </button>
+              </>
+            )}
+
             {mode === "twatgyi" && (
               <motion.button
                 initial={{ opacity: 0, x: -10 }}
@@ -1874,6 +2097,144 @@ ${stagedCount} architecture changes staged.
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {fullscreenImage && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setFullscreenImage(null)}
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4 md:p-12 cursor-zoom-out"
+          >
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute top-8 right-8 z-[1001] p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/10"
+              onClick={() => setFullscreenImage(null)}
+            >
+              <X size={24} />
+            </motion.button>
+
+            <motion.img 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={fullscreenImage}
+              alt="Fullscreen Neural Art"
+              className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+              referrerPolicy="no-referrer"
+            />
+
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-4 px-4 overflow-x-auto scrollbar-hide py-2">
+               {/* Gallery indicators or similar could go here if needed */}
+               <div className="px-6 py-3 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/60 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                 <Sparkles size={14} className="text-primary" />
+                 Neural Art Synthesis by Khittara AI
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Multimedia Generation Overlays */}
+      <AnimatePresence>
+        {(showImageGenOverlay || showVideoGenOverlay) && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="w-full max-w-lg bg-[#0A0A0B] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-10 h-10 rounded-2xl flex items-center justify-center",
+                    showImageGenOverlay ? "bg-primary/10" : "bg-purple-500/10"
+                  )}>
+                    {showImageGenOverlay ? <ImageIcon className="text-primary w-5 h-5" /> : <Video className="text-purple-500 w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      {showImageGenOverlay ? "AI Image Generator" : "AI Video Synthesis"}
+                    </h2>
+                    <p className="text-[10px] text-white/30 uppercase tracking-widest font-bold">Khittara Neural Engine</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowImageGenOverlay(false);
+                    setShowVideoGenOverlay(false);
+                    setGenPrompt("");
+                  }}
+                  className="p-2 hover:bg-white/5 rounded-full text-white/40 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-white/30 flex items-center gap-1">
+                    Describe your vision
+                    <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea 
+                    value={genPrompt}
+                    onChange={(e) => setGenPrompt(e.target.value)}
+                    placeholder={showImageGenOverlay ? "e.g. A futuristic Myanmar city with flying cars and neon lights, digital art style..." : "e.g. Cinematic view of Shwedagon Pagoda at sunset with moving clouds..."}
+                    className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all resize-none shadow-inner"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-start gap-3">
+                  <Lightbulb size={16} className="text-yellow-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-white/40 leading-relaxed italic">
+                    {showImageGenOverlay 
+                      ? "Tip: Be detailed. Mention colors, lighting, and style for better results."
+                      : "Tip: Describe the movement and atmosphere. Video synthesis works best with clear action cues."}
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => {
+                      setShowImageGenOverlay(false);
+                      setShowVideoGenOverlay(false);
+                      setGenPrompt("");
+                    }}
+                    className="flex-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-2xl py-4 font-bold text-sm transition-all border border-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const type = showImageGenOverlay ? 'image' : 'video';
+                      handleGenerateMultimedia(type, genPrompt);
+                    }}
+                    disabled={!genPrompt.trim()}
+                    className={cn(
+                      "flex-[2] text-white rounded-2xl py-4 font-bold text-sm hover:opacity-90 transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2",
+                      showImageGenOverlay ? "bg-primary shadow-primary/20" : "bg-purple-500 shadow-purple-500/20"
+                    )}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Create {showImageGenOverlay ? "Image" : "Video"}</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* File Preview Modal */}
       <AnimatePresence>

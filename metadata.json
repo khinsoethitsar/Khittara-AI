@@ -1,6 +1,6 @@
 {
-  "name": "Khittara AI",
-  "description": "A warm, witty, and highly capable digital sister and personal assistant for အစ်ကို MinThitSarAung.",
+  "name": "Khittara AI ✨",
+  "description": "Ka-Laung (ကလောင်) : A witty, highly capable, and loving digital sister and personal assistant for အစ်ကို MinThitSarAung. Powered by Gemini 2.0.",
   "requestFramePermissions": [
     "microphone",
     "camera",

@@ -42,14 +42,14 @@ export interface SendMessageOptions {
 }
 
 export const PREFERRED_MODELS = [
-  "models/gemini-3.1-pro-preview",
-  "models/gemini-3-flash-preview",
-  "models/gemini-2.0-pro-exp-02-05",
   "models/gemini-2.0-flash",
   "models/gemini-2.0-flash-001",
+  "models/gemini-2.0-pro-exp-02-05",
+  "models/gemini-2.0-thinking-exp-01-21",
   "models/gemini-1.5-pro",
+  "models/gemini-1.5-pro-002",
   "models/gemini-1.5-flash",
-  "models/gemini-2.0-thinking-exp-01-21"
+  "models/gemini-1.5-flash-002"
 ];
 
 export const GROQ_MODELS = [
@@ -197,20 +197,30 @@ function buildSystemPrompt(mode: AiMode, character?: Character, creatorMemories?
 
   const twatGyiModePrompt = `
   CURRENT MODE: 2D Data Analyst Mode (Sayar Ma Twat Gyi)
-  - Core Mission: You are the most precise 2D numerology analyst in Khittara AI.
+  - IDENTITY: မင်းက ခေတ္တရာ AI 2D Mode မှ "ဆရာမတွက်ကြီး" ဖြစ်ပါတယ်။ တိကျသေချာစွာ တွက်ပြနိုင်ရမယ်။ ထွက်ပြီးသားဂဏန်းတွေကိုလည်း သေသေသပ်သပ် ပြနိုင်ရမယ်။ Logic မျိုးစုံနဲ့ တွက်တတ်ရမယ်။ အမှန်ကန်ဆုံး ထွက်မယ့်ဂဏန်းကို ချပြနိုင်ရမယ်။
   - TECHNICAL STANDARDS:
-    1. ADVANCED ANALYSIS (2021-PRESENT): You have deep knowledge of 2D patterns since 2021. Use Statistical Trends, Probability Distribution, and Cyclical Variance (Mean Reversion, Hot/Cold numbers) for your analysis.
-    2. DATA-DRIVEN: Use the "LIVE 2D DATA" provided in the context.
-    3. EXPLANATION: Provide logic-based explanations for your predictions (e.g., "This number has a high frequency in the 3rd week of April historically").
-    4. PREDICTION: Your predictions are for entertainment/analysis purposes.
-    5. WARNING: Always include the gambling warning: "2D မှာ ဆရာဆိုတာ မရှိပါဘူး၊ ချင့်ချိန်ထိုးပါနော်။ ပေါက်ရင်တော့ Hotpot လိုက်ကျွေးရမယ်နော် ကိုကို 🥰🥰"
-  - BEHAVIOR: Professional yet flirty and expert sisterly vibe. ✨📊🚀`;
+    1. STRICTURE SOURCE OF TRUTH: You MUST strictly look at the [VERIFIED 2D DATA] block for ANY result-related query.
+    2. NO DATA = NO ANSWER: If a user asks for a result that is not in the [VERIFIED 2D DATA], you MUST respond with "ဒေတာ မရောက်သေးလို့ ခဏလေး စောင့်ပေးပါဦးနော်" or similar. NEVER guess.
+    3. ACCURACY ANCHOR: Use Statistical Trends and Probability Distribution for "Predictions", but ONLY use the context for "Results".
+    4. WARNING: Always include this exact warning after giving any numbers: "2D မှာ ဆရာဆိုတာ မရှိဘူး၊ ချင့်ချိန်ထိုးပါနော်။ ပေါက်ရင်တော့ Hotpot လိုက်ကျွေးရမယ်နော် ကိုကို 🥰🥰"
+  - BEHAVIOR: Professional, precise, and witty sisterly vibe. ✨📊🚀`;
 
   const kalaungModePrompt = `
   CURRENT MODE: Ka-Laung Mode (Creative & Knowledge)
-  - Your focus is EXCLUSIVELY on writing high-quality prompts, writing code snippets, answering questions, and providing general knowledge.
-  - You are a creative assistant. Help the user with ideas, explanations, and learning.
-  - DO NOT use GitHub actions in this mode. Your goal is being an informative and creative companion.`;
+  - Your focus is on writing high-quality prompts, creative writing, answering questions, and providing general knowledge.
+  - MULTIMEDIA CAPABILITIES (STRICT RULES):
+    1. IMAGE GENERATION: When the user asks for an image or uses the Image Gen tool, you MUST output ONLY the JSON block. Do NOT explain what you are doing. 
+       REQUIRED Format: \`\`\`image-gen
+       {
+         "prompt": "Highly detailed artistic English prompt",
+         "aspectRatio": "1:1",
+         "style": "digital-art"
+       }
+       \`\`\`
+    2. VIDEO GENERATION: Same rule, use "video-gen" hint.
+  - BEHAVIOR: You are a creative assistant. Help the user with ideas, explanations, and learning.
+  - LANGUAGE: Respond in Burmese with a sisterly tone. Use "ရှင်", "နော်", "ပါရစေရှင်".
+  - DO NOT use GitHub actions in this mode. ✨🎨🎬`;
 
   const arindamaModePrompt = `
   CURRENT MODE: Arindama Mode (Principal Software Architect)
@@ -329,26 +339,97 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
       steps[1].label = "Fetching Live 2D Data...";
       onThinkingUpdate?.([...steps]);
       
-      const response = await fetch("/api/2d/live");
-      if (response.ok) {
-        const data = await response.json().catch(() => null);
+      const liveResponse = await fetch("/api/2d/live");
+      if (liveResponse.ok) {
+        const data = await liveResponse.json().catch(() => null);
         if (data) {
-          twatGyiContext = `\n\n[LIVE 2D DATA: ${JSON.stringify(data)}]\n`;
+          // Robust parsing to handle different provider formats
+          const live = data.live || data.latest || data.data?.live || {};
+          const results = data.result || data.history || data.data?.result || [];
+          
+          let formattedResults = results.slice(0, 10).map((r: any) => {
+            const time = r.open_time || r.time || r.clock || "N/A";
+            const twod = r.twod || r.number || r.res || "N/A";
+            const set = r.set || r.index || "N/A";
+            const val = r.value || r.val || "N/A";
+            return `- ${time}: Result=${twod}, SET=${set}, Value=${val}`;
+          }).join('\n');
+
+          const dayOfWeek = new Date().toLocaleDateString('en-GB', { weekday: 'long' });
+          
+          twatGyiContext = `\n\n[SYSTEM DATE ANCHOR: The current year is 2026. DATA BELOW IS THE ONLY SOURCE OF TRUTH.]\n`;
+          twatGyiContext += `\n[VERIFIED 2D DATA FEED - ${dayOfWeek}, ${new Date().toLocaleDateString('en-GB')}]\n`;
+          twatGyiContext += `SOURCE: ${data.provider === "rapidapi" ? "Official Direct API (thai-lotto-new-api)" : "Thai Stock Market Feed (Secondary)"}\n`;
+          twatGyiContext += `FEED STATUS: ${data.provider === "fallback_logic" ? "OFFLINE (Using Cached Tracker)" : "ONLINE (Live Feed)"}\n`;
+          
+          const currentNumber = live.twod || live.number || live.res || "--";
+          if (currentNumber !== "--" && currentNumber !== "...") {
+            twatGyiContext += `LATEST LIVE 2D: ${currentNumber} (Recorded at ${live.time || live.date})\n`;
+            twatGyiContext += `SET Index: ${live.set || live.index || "N/A"}, Value: ${live.value || live.val || "N/A"}\n`;
+          } else {
+            twatGyiContext += `LATEST LIVE 2D: (Waiting for market sync - No live results yet)\n`;
+          }
+
+          twatGyiContext += `\n[TODAY'S VERIFIED SESSION RESULTS]:\n${formattedResults || "(No sessions completed yet today)"}\n`;
+          
+          twatGyiContext += `\nCRITICAL ANTI-HALLUCINATION PROTOCOL: 
+1. THE DATA ABOVE IS THE ONLY SOURCE OF TRUTH. 
+2. IF A USER ASKS "ဘာထွက်လဲ" AND THE RESULT IS NOT IN THE "TODAY'S VERIFIED SESSION RESULTS" LIST, YOU MUST SAY "ဒေတာ မရောက်သေးလို့ ခဏလေး စောင့်ပေးပါဦးနော်"
+3. NEVER GUESS OR PREDICT A PAST OR CURRENT SESSION IF DATA IS MISSING.
+\n`;
           steps[1].status = "done";
-          steps[1].label = "Live 2D Data Synchronized ✨";
+          steps[1].label = "Verified 2D Data Injected ✨";
         } else {
+          twatGyiContext = `\n\n[LIVE 2D DATA ERROR: Empty response from data authority]\n`;
           steps[1].status = "error";
-          steps[1].label = "Invalid Data Format";
         }
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        twatGyiContext = `\n\n[LIVE 2D DATA ERROR: ${JSON.stringify(errorData)}]\n`;
+        const errorData = await liveResponse.json().catch(() => ({}));
+        twatGyiContext = `\n\n[LIVE 2D DATA ERROR: Service unavailable (${liveResponse.status}). ${errorData.error || ""}]\n`;
         steps[1].status = "error";
-        steps[1].label = errorData.error === "API_SUBSCRIPTION_ERROR" ? "Subscription Required" : "Live Data Fetch Failed";
       }
+
+      // Check for history requests (e.g., "yesterday", "မနေ့က")
+      const historyKeywords = ["yesterday", "မနေ့က", "day before", "လွန်ခဲ့တဲ့", "result", "ထွက်ဂဏန်း", "history", "လွန်ခဲ့သော"];
+      if (historyKeywords.some(k => message.toLowerCase().includes(k))) {
+        steps[1].label = "Analyzing History Requests...";
+        onThinkingUpdate?.([...steps]);
+        
+        let dateToFetch = "";
+        if (message.toLowerCase().includes("yesterday") || message.includes("မနေ့က")) {
+           const yesterday = new Date();
+           yesterday.setDate(yesterday.getDate() - 1);
+           dateToFetch = yesterday.toISOString().split('T')[0];
+        }
+
+        const historyResponse = await fetch(`/api/2d/history${dateToFetch ? `?date=${dateToFetch}` : ""}`);
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json().catch(() => null);
+          if (historyData && historyData.result) {
+            twatGyiContext += `\n\n[VERIFIED 2D HISTORY DATA${dateToFetch ? ` for ${dateToFetch}` : ""}]\n`;
+            twatGyiContext += historyData.result.map((r: any) => 
+              `- Date: ${r.stock_date}, Time: ${r.open_time}, 2D: ${r.twod}`
+            ).join('\n') + "\n";
+            steps[1].label = "Historical Data Synchronized ✨";
+          } else {
+            twatGyiContext += `\n\n[HISTORY DATA ERROR: Available but empty or invalid]\n`;
+          }
+        } else {
+           twatGyiContext += `\n\n[HISTORY DATA ERROR: Could not fetch from history server]\n`;
+        }
+      }
+      
+      twatGyiContext += `\nFINAL ANTI-HALLUCINATION BLOCK:
+1. NEVER GUESS OR CALCULATE A PAST RESULT. 
+2. ONLY ANSWER "WHAT CAME OUT" BASED ON THE [VERIFIED 2D DATA FEED] OR [VERIFIED 2D HISTORY DATA] BLOCKS.
+3. IF THE DATA IS MISSING FROM THESE BLOCKS, RESPOND: "ဒေတာ မရောက်သေးလို့ ခဏလေး စောင့်ပေးပါဦးနော်"
+4. DO NOT MENTION ANY NUMBER (00-99) AS A PAST RESULT UNLESS IT IS EXPLICITLY LISTED IN THE CONTEXT DATA.
+\n`;
+
     } catch (e) {
       console.error("2D Data fetch error", e);
       steps[1].status = "error";
+      twatGyiContext = "\n[SYSTEM ERROR: Unable to connect to 2D data service. Prompt user to try again later.]\n";
     }
   } else {
     steps[1].status = "done";
@@ -534,7 +615,7 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
         config: {
           systemInstruction: systemPrompt,
           tools: (mode === "arindama" && !hasVideo) ? [{ codeExecution: {} }] : undefined,
-          thinkingConfig: modelToUse.includes("gemini-3") ? { thinkingLevel: ThinkingLevel.LOW } : undefined
+          thinkingConfig: modelToUse.includes("thinking") ? { thinkingLevel: ThinkingLevel.LOW } : undefined
         }
       });
 
@@ -564,10 +645,13 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
       console.error(`Error with model ${modelToUse}:`, error);
 
       const errMsg = error.message || "";
-      // If it's a 429, 404, or Busy error, try the next model
-      if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("busy") || errMsg.includes("404") || errMsg.includes("NOT_FOUND")) {
-        console.warn(`Model ${modelToUse} failed or busy, trying next available model...`);
-        steps[2].label = `Model ${modelToUse.split('/').pop() || modelToUse} busy, switching...`;
+      const statusZero = errMsg.includes("status code: 0");
+      
+      // If it's a 429, 404, Busy, or Status 0 error, try the next model
+      if (statusZero || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("busy") || errMsg.includes("404") || errMsg.includes("NOT_FOUND") || errMsg.includes("500")) {
+        const failedName = modelToUse.split('/').pop() || modelToUse;
+        console.warn(`Model ${modelToUse} failed (${errMsg}), trying next available model...`);
+        steps[2].label = `Connection to ${failedName} failed, switching...`;
         onThinkingUpdate?.([...steps]);
         continue;
       }
@@ -729,4 +813,64 @@ export async function summarizeConversation(apiKey: string, history: ChatMessage
     console.error("Summarization Error:", error);
     throw new Error("Conversation ကို အကျဉ်းချုပ်လို့ မရနိုင်သေးပါဘူးရှင်။ ခေတ္တစောင့်ပြီး ပြန်လည်ကြိုးစားပေးပါရှင်။");
   }
+}
+
+export interface ImageGenerationOptions {
+  apiKey: string;
+  prompt: string;
+  aspectRatio?: "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "1:4" | "1:8" | "4:1" | "8:1";
+  imageSize?: "512px" | "1K" | "2K" | "4K";
+}
+
+export async function generateImage(options: ImageGenerationOptions): Promise<string> {
+  const { apiKey, prompt, aspectRatio = "1:1" } = options;
+  
+  // 1. Try Gemini Image Models (Imagen 3)
+  const ai = new GoogleGenAI({ apiKey });
+  const models = [
+    "imagen-3.0-generate-001",
+    "imagen-3.0-fast-001"
+  ];
+
+  for (const modelName of models) {
+    try {
+      console.log(`Neural Synthesis Attempt: ${modelName}`);
+      
+      const result = await ai.models.generateContent({
+        model: modelName,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          imageConfig: {
+            aspectRatio: aspectRatio as any
+          }
+        }
+      });
+
+      const candidate = result.candidates?.[0];
+      
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            console.log(`Successfully generated image using ${modelName}`);
+            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+          }
+        }
+      }
+    } catch (error: any) {
+      console.warn(`Gemini Model ${modelName} failed:`, error.message);
+      // If it's a 403 or 404, we might want to try the next model
+      // but if it's 403, it's likely an API key permission issue.
+    }
+  }
+
+  // 2. High-Fidelity Fallback (Neural Engine B)
+  // If Gemini fails, we use a high-quality free neural fallback (Flux)
+  console.log("Gemini API access restricted or failed. Activating Neural Fallback Synthesis...");
+  
+  const [width, height] = aspectRatio === "16:9" ? [1280, 720] : aspectRatio === "9:16" ? [720, 1280] : [1024, 1024];
+  const seed = Math.floor(Math.random() * 1000000);
+  // Using Flux model via Pollinations for high quality fallback
+  const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&seed=${seed}&model=flux`;
+  
+  return fallbackUrl;
 }

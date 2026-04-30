@@ -1,0 +1,118 @@
+{
+  "entities": {
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat conversation session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "messages": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "enum": ["user", "model"] },
+              "content": { "type": "string" },
+              "timestamp": { "type": "string" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "messages", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "character": { "type": "string" },
+        "language": { "type": "string", "enum": ["my", "en"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "updatedAt"]
+    },
+    "LiveChatMessage": {
+      "title": "LiveChatMessage",
+      "description": "A live chat message for the community",
+      "type": "object",
+      "properties": {
+        "message": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["message", "senderId", "senderName", "createdAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A user-defined task/todo item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "completed", "createdAt", "updatedAt"]
+    },
+    "Memory": {
+      "title": "Memory",
+      "description": "Extracted key facts and context from user conversations",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "user_profile": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "interests": { "type": "array", "items": { "type": "string" } },
+            "preferences": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "current_context": {
+          "type": "object",
+          "properties": {
+            "active_project": { "type": "string" },
+            "recent_topics": { "type": "array", "items": { "type": "string" } },
+            "unresolved_issues": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "last_interaction_mood": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "user_profile", "current_context", "last_interaction_mood", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/sessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Collection of chat sessions"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/live_chat/{messageId}": {
+      "schema": "LiveChatMessage",
+      "description": "Public live chat messages"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User task/todo items"
+    },
+    "/memories/{userId}": {
+      "schema": "Memory",
+      "description": "Extracted user memories"
+    }
+  }
+}
