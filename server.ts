@@ -170,7 +170,7 @@ async function startServer() {
 
       const client = new GoogleGenAI({ apiKey });
       const result = await client.models.generateContent({
-        model: model || "gemini-1.5-flash",
+        model: model || "models/gemini-3-flash-preview",
         contents,
         config: {
           systemInstruction
@@ -180,8 +180,13 @@ async function startServer() {
       res.json({ text: result.text });
     } catch (error: any) {
       const errMsg = error.message || String(error);
-      // Clean up error message to avoid leaking keys or internal details
-      const filteredMsg = errMsg.replace(process.env.GEMINI_API_KEY || "SECRET", "[HIDDEN]");
+      // More aggressive secret filtering
+      let filteredMsg = errMsg;
+      const secrets = [process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY, process.env.RAPIDAPI_KEY].filter(Boolean);
+      secrets.forEach(s => {
+        if (s) filteredMsg = filteredMsg.replace(new RegExp(s, 'g'), "[HIDDEN]");
+      });
+      
       console.error("Gemini Proxy Error:", filteredMsg);
       res.status(error.status || 500).json({ error: filteredMsg });
     }

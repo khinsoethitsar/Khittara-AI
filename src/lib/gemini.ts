@@ -57,9 +57,10 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // 3. Check for specific reasoning requests
   const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
 
-  // Priority stack based on the provided list of available models
+  // Priority stack focusing on Gemini 3 Flash Preview as requested
   if (isCoding || isReasoning || hasFiles) {
     return [
+      "models/gemini-3-flash-preview",
       "models/gemini-1.5-pro",
       "models/gemini-2.0-flash",
       "models/gemini-3.1-pro-preview",
@@ -72,6 +73,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
 
   if (isCreativeHeader) {
     return [
+      "models/gemini-3-flash-preview",
       "models/gemini-1.5-flash",
       "models/gemini-3-pro-preview",
       "models/gemini-2.5-pro",
@@ -81,8 +83,9 @@ function routeToBestModel(options: SendMessageOptions): string[] {
     ];
   }
 
-  // Default to 1.5 Flash for stability, then newest for features
+  // Default to Gemini 3 Flash for speed and intelligence
   return [
+    "models/gemini-3-flash-preview",
     "models/gemini-1.5-flash",
     "models/gemini-3.1-flash-lite-preview",
     "models/gemini-3-flash-preview",
@@ -94,6 +97,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
 }
 
 export const PREFERRED_MODELS = [
+  "models/gemini-3-flash-preview",
   "models/gemini-1.5-flash",
   "models/gemini-1.5-pro",
   "models/gemini-3.1-pro-preview",
