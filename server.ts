@@ -168,27 +168,54 @@ async function startServer() {
         return res.status(401).json({ error: "Gemini API Key is required. Please provide it in settings or environment." });
       }
 
-      const client = new GoogleGenAI({ apiKey });
+      // Ensure model name format is correct
+      let modelName = model || "models/gemini-3-flash-preview";
+      if (!modelName.startsWith("models/")) {
+        modelName = `models/${modelName}`;
+      }
+
+      console.log(`[Gemini Proxy] Generating content with model: ${modelName}`);
+
+      const client = new GoogleGenAI({ 
+        apiKey,
+        // Ensure we can use latest features if the SDK supports version setting
+      });
+      
       const result = await client.models.generateContent({
-        model: model || "models/gemini-3-flash-preview",
+        model: modelName,
         contents,
         config: {
-          systemInstruction
+          systemInstruction,
+          // Support for potentially longer outputs or specific safety settings
         }
       });
+
+      if (!result || !result.text) {
+        throw new Error("Empty response from Gemini API");
+      }
 
       res.json({ text: result.text });
     } catch (error: any) {
       const errMsg = error.message || String(error);
-      // More aggressive secret filtering
-      let filteredMsg = errMsg;
+      
+      // Detailed error logging for debugging (filtered)
+      let logMsg = errMsg;
       const secrets = [process.env.GEMINI_API_KEY, process.env.OPENROUTER_API_KEY, process.env.RAPIDAPI_KEY].filter(Boolean);
       secrets.forEach(s => {
-        if (s) filteredMsg = filteredMsg.replace(new RegExp(s, 'g'), "[HIDDEN]");
+        if (s) logMsg = logMsg.replace(new RegExp(s, 'g'), "[HIDDEN]");
       });
       
-      console.error("Gemini Proxy Error:", filteredMsg);
-      res.status(error.status || 500).json({ error: filteredMsg });
+      console.error("Gemini Proxy Error:", logMsg);
+
+      // Handle specific error codes
+      if (errMsg.includes("NOT_FOUND") || errMsg.includes("404")) {
+        return res.status(404).json({ 
+          error: "Model not found or API version mismatch. Please check your model configuration.",
+          details: logMsg 
+        });
+      }
+
+      res.status(error.status || 500).json({ error: "Gemini Service Error", details: logMsg });
     }
   });
 
