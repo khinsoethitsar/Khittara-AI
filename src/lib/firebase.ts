@@ -6,14 +6,14 @@ import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, o
 
 // Safe config loading with environment variables as primary source
 const finalConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyD1dxpq8RsDsuLTHO3Yvt0gbWwuWrNh5Oo",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gen-lang-client-0017769115.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gen-lang-client-0017769115",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gen-lang-client-0017769115.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "119724535454",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:119724535454:web:22897b0d1c9edd9c51158f",
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || "ai-studio-b60c4af6-485a-4c3d-b9b4-3870628ab506"
 };
 
 if (!finalConfig.apiKey) {
