@@ -1,6 +1,6 @@
 # apphosting.yaml
 runConfig:
   minInstances: 0
-  maxInstances: 5      # Instance အရေအတွက်ကို လျှော့ချလိုက်ခြင်းဖြင့် Quota မထိအောင် ထိန်းပေးပါတယ်
+  maxInstances: 20      # Instance အရေအတွက်ကို လျှော့ချလိုက်ခြင်းဖြင့် Quota မထိအောင် ထိန်းပေးပါတယ်
   cpu: 1               # CPU ကို 1 ပဲ ထားပါ
   memoryMiB: 512       # Memory ကို 512MB ပဲ ထားပါ
