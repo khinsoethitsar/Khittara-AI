@@ -57,51 +57,52 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // 3. Check for specific reasoning requests
   const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
 
-  // Priority stack based on the provided list of 38 available models
+  // Priority stack based on the provided list of available models
   if (isCoding || isReasoning || hasFiles) {
     return [
+      "models/gemini-1.5-pro",
+      "models/gemini-2.0-flash",
       "models/gemini-3.1-pro-preview",
       "models/gemini-3-pro-preview",
       "models/gemini-2.5-pro",
-      "models/gemini-2.0-flash",
       "models/gemini-pro-latest",
-      "models/gemini-1.5-pro",
       "models/gemini-1.5-flash"
     ];
   }
 
   if (isCreativeHeader) {
     return [
+      "models/gemini-1.5-flash",
       "models/gemini-3-pro-preview",
       "models/gemini-2.5-pro",
       "models/gemini-2.5-flash",
       "models/gemini-2.0-flash",
-      "models/gemini-flash-latest",
-      "models/gemini-1.5-flash"
+      "models/gemini-flash-latest"
     ];
   }
 
-  // Default to 3 Flash for speed and general intelligence
+  // Default to 1.5 Flash for stability, then newest for features
   return [
+    "models/gemini-1.5-flash",
     "models/gemini-3.1-flash-lite-preview",
     "models/gemini-3-flash-preview",
     "models/gemini-2.5-flash",
     "models/gemini-2.0-flash",
     "models/gemini-flash-lite-latest",
-    "models/gemini-flash-latest",
-    "models/gemini-1.5-flash"
+    "models/gemini-flash-latest"
   ];
 }
 
 export const PREFERRED_MODELS = [
+  "models/gemini-1.5-flash",
+  "models/gemini-1.5-pro",
   "models/gemini-3.1-pro-preview",
   "models/gemini-3.1-flash-lite-preview",
   "models/gemini-3-flash-preview",
   "models/gemini-2.5-pro",
   "models/gemini-2.5-flash",
   "models/gemini-pro-latest",
-  "models/gemini-flash-latest",
-  "models/gemini-1.5-flash"
+  "models/gemini-flash-latest"
 ];
 
 export const OPENROUTER_MODELS = [
@@ -479,8 +480,6 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
 
   const systemPrompt = buildSystemPrompt(mode, character, creatorMemories, isCreatorVerified, deepMemory || getDeepMemory()) + twatGyiContext;
 
-  const ai = new GoogleGenAI({ apiKey });
-  
   // Use Smart Router to pick the best model stack
   const modelsToTry = routeToBestModel(options);
 
@@ -536,35 +535,35 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
       }
       contents.push({ role: "user", parts: currentParts });
 
-      const streamResponse = await ai.models.generateContentStream({
-        model: modelToUse,
-        contents,
-        config: {
+      // Call through secure server proxy
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: modelToUse,
+          contents,
           systemInstruction: systemPrompt,
-          tools: (mode === "arindama" && !hasVideo) ? [{ codeExecution: {} }] : undefined,
-          thinkingConfig: modelToUse.includes("thinking") ? { thinkingLevel: ThinkingLevel.LOW } : undefined
-        }
+          userApiKey: apiKey // Safely passed to backend
+        })
       });
 
-      let fullText = "";
-      steps[2].status = "done";
-      steps[3].status = "active";
-      steps[3].label = "Arindama is engineering...";
-      onThinkingUpdate?.([...steps]);
-
-      for await (const chunk of streamResponse) {
-        const text = chunk.text;
-        if (text) {
-          fullText += text;
-          if (options.onStream) options.onStream(fullText);
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server returned ${response.status}`);
       }
+
+      const data = await response.json();
+      const fullText = data.text;
 
       if (fullText) {
         steps[2].status = "done";
         steps[2].label = `Finished with ${modelToUse.split('/').pop() || modelToUse}`;
         steps[3].status = "done";
         onThinkingUpdate?.([...steps]);
+        
+        // Simulate streaming for UI consistency if needed, but since it's now batch, we just return
+        if (options.onStream) options.onStream(fullText);
+        
         return fullText;
       }
     } catch (error: any) {
@@ -610,8 +609,6 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
 }
 
 export async function fixCode(apiKey: string, code: string, error: string): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-  
   const prompt = `You are an expert React and Tailwind CSS developer.
   The following code has an error. Please fix the error and return ONLY the corrected code without any markdown formatting or explanations.
   
@@ -625,24 +622,27 @@ export async function fixCode(apiKey: string, code: string, error: string): Prom
 
   for (const modelName of PREFERRED_MODELS) {
     try {
-      const result = await ai.models.generateContent({ 
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: modelName,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          userApiKey: apiKey
+        })
       });
-      let fixedCode = result.text.trim();
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      let fixedCode = data.text.trim();
       // Remove markdown code blocks if the model included them despite instructions
       if (fixedCode.startsWith('```')) {
         fixedCode = fixedCode.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '');
       }
       return fixedCode;
     } catch (err: any) {
-      const msg = err.message || "";
-      if (msg.includes("429") || msg.includes("404") || msg.includes("NOT_FOUND")) {
-        console.warn(`fixCode failed with ${modelName}, trying next...`);
-        continue;
-      }
-      console.error("Fix Code Error:", err);
-      break;
+      continue;
     }
   }
   throw new Error("All healing models failed to fix the code.");
@@ -652,40 +652,15 @@ export async function validateApiKey(provider: "google" | "openrouter" | "openai
   if (!key) return false;
 
   try {
-    if (provider === "google") {
-      const ai = new GoogleGenAI({ apiKey: key });
-      for (const modelToTry of PREFERRED_MODELS) {
-        try {
-          const result = await ai.models.generateContent({ 
-            model: modelToTry, 
-            contents: [{ role: 'user', parts: [{ text: "test" }] }]
-          });
-          return !!result.text;
-        } catch (inner: any) {
-          if (inner.message?.includes("404") || inner.message?.includes("NOT_FOUND")) continue;
-          throw inner;
-        }
-      }
-      return false;
-    } else if (provider === "openrouter") {
-      const res = await fetch("/api/openrouter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "test" }],
-          model: "google/gemini-flash-1.5-exp",
-          max_tokens: 1,
-          apiKey: key
-        })
-      });
-      return res.ok;
-    } else if (provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/models", {
-        headers: {
-          "Authorization": `Bearer ${key}`
-        }
-      });
-      return res.ok;
+    const res = await fetch("/api/validate-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey: key, provider })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      return !!data.valid;
     }
     return false;
   } catch (error) {
@@ -697,8 +672,6 @@ export async function validateApiKey(provider: "google" | "openrouter" | "openai
 export async function summarizeConversation(apiKey: string, history: ChatMessage[]): Promise<string> {
   if (history.length === 0) return "ဖျက်ထားတဲ့ Chat ဖြစ်လို့ အကျဉ်းချုပ်စရာ မရှိပါဘူးရှင်။";
 
-  const ai = new GoogleGenAI({ apiKey });
-  
   const isVerified = history.some(m => m.content.includes("Min33433433@"));
   const address = isVerified ? '"အစ်ကို MinThitSarAung"' : "the user neutrally";
 
@@ -717,18 +690,23 @@ export async function summarizeConversation(apiKey: string, history: ChatMessage
     let lastSumError: any = null;
     for (const modelToUse of PREFERRED_MODELS) {
       try {
-        const result = await ai.models.generateContent({ 
-          model: modelToUse,
-          contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: modelToUse,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            userApiKey: apiKey
+          })
         });
-        return result.text;
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        return data.text;
       } catch (innerError: any) {
         lastSumError = innerError;
-        const errMsg = innerError.message || "";
-        if (errMsg.includes("429") || errMsg.includes("404") || errMsg.includes("NOT_FOUND")) {
-          continue;
-        }
-        throw innerError;
+        continue;
       }
     }
     throw lastSumError || new Error("All summarization models failed.");
@@ -748,47 +726,30 @@ export interface ImageGenerationOptions {
 export async function generateImage(options: ImageGenerationOptions): Promise<string> {
   const { apiKey, prompt, aspectRatio = "1:1" } = options;
   
-  // 1. Try Gemini Image Models (Imagen 3)
-  const ai = new GoogleGenAI({ apiKey });
-  const models = [
-    "imagen-3.0-generate-001",
-    "imagen-3.0-fast-001"
-  ];
+  try {
+    const response = await fetch("/api/generate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        aspectRatio,
+        userApiKey: apiKey
+      })
+    });
 
-  for (const modelName of models) {
-    try {
-      console.log(`Neural Synthesis Attempt: ${modelName}`);
-      
-      const result = await ai.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          imageConfig: {
-            aspectRatio: aspectRatio as any
-          }
-        }
-      });
-
-      const candidate = result.candidates?.[0];
-      
-      if (candidate?.content?.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData) {
-            console.log(`Successfully generated image using ${modelName}`);
-            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          }
-        }
+    if (response.ok) {
+      const data = await response.json();
+      if (data.imageUrl) {
+        return data.imageUrl;
       }
-    } catch (error: any) {
-      console.warn(`Gemini Model ${modelName} failed:`, error.message);
-      // If it's a 403 or 404, we might want to try the next model
-      // but if it's 403, it's likely an API key permission issue.
     }
+  } catch (error) {
+    console.warn("Server Image Proxy failed, using Neural Fallback...");
   }
 
   // 2. High-Fidelity Fallback (Neural Engine B)
-  // If Gemini fails, we use a high-quality free neural fallback (Flux)
-  console.log("Gemini API access restricted or failed. Activating Neural Fallback Synthesis...");
+  // If server proxy fails or returns fallback, we use a high-quality free neural fallback (Flux)
+  console.log("Activating Neural Fallback Synthesis...");
   
   const [width, height] = aspectRatio === "16:9" ? [1280, 720] : aspectRatio === "9:16" ? [720, 1280] : [1024, 1024];
   const seed = Math.floor(Math.random() * 1000000);

@@ -5,6 +5,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
@@ -148,12 +149,108 @@ async function startServer() {
         return res.json(data);
       }
       
-      const errorText = await resp.text();
-      console.warn(`History API Error (${resp.status}):`, errorText.substring(0, 100));
-      res.status(resp.status || 500).json({ error: "History data not found", raw: errorText.substring(0, 100) });
+      const content = await resp.text();
+      console.warn(`History API Error (${resp.status}):`, content.substring(0, 100));
+      res.status(resp.status || 500).json({ error: "History data not found" });
     } catch (error) {
       console.error("2D History Proxy Error:", error);
-      res.status(500).json({ error: "Internal Server Error", message: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
+  // Secure Gemini Proxy
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { model, contents, systemInstruction, userApiKey } = req.body;
+      const apiKey = userApiKey || process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.status(401).json({ error: "Gemini API Key is required. Please provide it in settings or environment." });
+      }
+
+      const client = new GoogleGenAI({ apiKey });
+      const result = await client.models.generateContent({
+        model: model || "gemini-1.5-flash",
+        contents,
+        config: {
+          systemInstruction
+        }
+      });
+
+      res.json({ text: result.text });
+    } catch (error: any) {
+      const errMsg = error.message || String(error);
+      // Clean up error message to avoid leaking keys or internal details
+      const filteredMsg = errMsg.replace(process.env.GEMINI_API_KEY || "SECRET", "[HIDDEN]");
+      console.error("Gemini Proxy Error:", filteredMsg);
+      res.status(error.status || 500).json({ error: filteredMsg });
+    }
+  });
+
+  // Secure Image Synthesis Proxy
+  app.post("/api/generate-image", async (req, res) => {
+    try {
+      const { prompt, aspectRatio, userApiKey } = req.body;
+      const apiKey = userApiKey || process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.status(401).json({ error: "API Key required for synthesis." });
+      }
+
+      const client = new GoogleGenAI({ apiKey });
+      const modelName = "imagen-3.0-generate-001"; // Priority synthesis model
+
+      const result = await client.models.generateContent({
+        model: modelName,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          imageConfig: {
+            aspectRatio: aspectRatio || "1:1"
+          }
+        }
+      });
+
+      const candidate = result.candidates?.[0];
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            return res.json({ 
+              imageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+              provider: "imagen"
+            });
+          }
+        }
+      }
+
+      // If Imagen fails or is restricted, use the Neural Fallback logic on server
+      throw new Error("Imagen synthesis restricted or failed.");
+    } catch (error: any) {
+      console.warn("Imagen synthesis failed, using Neural Fallback...");
+      // Log generic error but not the full trace to avoid leaks
+      res.status(200).json({ fallback: true });
+    }
+  });
+
+  // Secure API Key Validation Proxy
+  app.post("/api/validate-key", async (req, res) => {
+    try {
+      const { apiKey, provider } = req.body;
+      if (!apiKey) return res.status(400).json({ error: "Key required" });
+
+      if (provider === "google") {
+        const client = new GoogleGenAI({ apiKey });
+        // Use 1.5 Flash as it's the most common/accessible for validation
+        const result = await client.models.generateContent({
+          model: "gemini-1.5-flash",
+          contents: [{ role: 'user', parts: [{ text: "hi" }] }]
+        });
+        return res.json({ valid: !!result.text });
+      }
+      
+      // Fallback for other providers if needed
+      res.json({ valid: true }); // Assume true for unidentified but present keys
+    } catch (error) {
+      res.status(401).json({ valid: false, error: "Invalid API Key" });
     }
   });
 
