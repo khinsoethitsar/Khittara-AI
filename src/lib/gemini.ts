@@ -36,34 +36,35 @@ export interface SendMessageOptions {
 }
 
 /**
- * Smart Model Router
+ * ၁။ Build System Prompt
+ * ပုံထဲက Character type error ကို ဒီမှာ ပြင်ထားပါတယ်ရှင်။
  */
-function routeToBestModel(options: SendMessageOptions): string[] {
-  const { message, mode } = options;
-  const prompt = message.toLowerCase();
-  
-  const isCoding = prompt.includes("code") || mode === "arindama";
-  
-  if (isCoding) {
-    return ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash"];
-  }
-  return ["gemini-1.5-flash", "gemini-2.0-flash-exp"];
+function buildSystemPrompt(mode: AiMode, character?: Character, creatorMemories?: CreatorMemory[], isCreatorVerified: boolean = false): string {
+  const knowledgeBase = getKnowledgeBase();
+  const evolutionDirectives = getEvolutionDirectives();
+  const identityStatus = isCreatorVerified ? "STATUS: [VERIFIED CREATOR]" : "STATUS: [GUEST]";
+
+  let basePrompt = character 
+    ? `Brand: Khittara AI | Name: ${character.name} | Role: ${character.role} | Tone: ${character.tone} | Instruction: ${character.systemInstruction}`
+    : `Brand: Khittara AI | Identity: You are ကလောင် (Ka-Laung), a digital sister.`;
+
+  const commonContext = `
+  STYLE: Warm, sisterly.
+  SPEECH: Burmese female markers (ရှင်၊ ပါရစေရှင်) ကို သုံးပါ။
+  ADDRESSING: User ကို "အစ်ကို/အစ်မ" ဟု ခေါ်ပါ။`;
+
+  return `${basePrompt}\n${identityStatus}\n${commonContext}\nContext: ${knowledgeBase}\nDirectives: ${evolutionDirectives}`;
 }
 
-// ---------------------------------------------------------
-// ၁။ SUMMARIZE CONVERSATION FUNCTION (အစ်ကို့ပုံထဲက Error ကို ဒီမှာ ပြင်ထားပါတယ် ✨)
-// ---------------------------------------------------------
+/**
+ * ၂။ Summarize Conversation
+ * Export ရော၊ Array Type [] ရော မှန်အောင် ပြင်ထားပါတယ်ရှင်။
+ */
 export async function summarizeConversation(apiKey: string, history: ChatMessage[]): Promise<string> {
-  if (!history || history.length === 0) return "ဖျက်ထားတဲ့ Chat ဖြစ်လို့ အကျဉ်းချုပ်စရာ မရှိပါဘူးရှင်။";
+  if (!history || history.length === 0) return "အကျဉ်းချုပ်စရာ မရှိသေးပါဘူးရှင်။";
 
-  const prompt = `Please provide a concise summary of the following chat conversation in Burmese. 
-  Focus on the main topics discussed and any decisions made. 
-  Keep it friendly and professional. Use bullet points for clarity.
-  
-  CONVERSATION HISTORY:
-  ${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}
-  
-  SUMMARY:`;
+  const prompt = `Summarize this chat in Burmese using bullet points:
+  ${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}`;
 
   try {
     const response = await fetch("/api/chat", {
@@ -76,75 +77,56 @@ export async function summarizeConversation(apiKey: string, history: ChatMessage
       })
     });
 
-    if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
     const data = await response.json();
-    return data.text || "အကျဉ်းချုပ်လို့ မရနိုင်သေးပါဘူးရှင်။";
-    
+    return data.text || "Summary failed.";
   } catch (error) {
-    console.error("Summarization Error:", error);
-    return "Conversation ကို အကျဉ်းချုပ်လို့ မရနိုင်သေးပါဘူးရှင်။ ခေတ္တစောင့်ပြီး ပြန်လည်ကြိုးစားပေးပါရှင်။";
+    return "နည်းပညာပိုင်းဆိုင်ရာ အခက်အခဲကြောင့် အကျဉ်းချုပ်လို့ မရသေးပါဘူးရှင်။";
   }
 }
 
-// ---------------------------------------------------------
-// ၂။ SEND MESSAGE ADVANCED
-// ---------------------------------------------------------
+/**
+ * ၃။ Send Message Advanced
+ */
 export async function sendMessageAdvanced(options: SendMessageOptions): Promise<string> {
-  const { apiKey, history, message, mode = "kalaung", onThinkingUpdate } = options;
+  const { apiKey, history, message, mode = "kalaung", onThinkingUpdate, characterId, isCreatorVerified } = options;
 
   let steps: ThinkingStep[] = [
     { id: "analyze", type: "analyze", label: "Analyzing Request...", status: "active" },
-    { id: "model", type: "search", label: "Connecting to Gemini...", status: "pending" },
-    { id: "execute", type: "execute", label: "Generating Response...", status: "pending" }
+    { id: "execute", type: "execute", label: "Generating...", status: "pending" }
   ];
   onThinkingUpdate?.([...steps]);
 
-  const modelsToTry = routeToBestModel(options);
+  const character = CHARACTERS.find(c => c.id === characterId);
+  const systemPrompt = buildSystemPrompt(mode, character, options.creatorMemories, isCreatorVerified);
 
-  for (const modelToUse of modelsToTry) {
-    try {
-      steps[1].status = "active";
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gemini-1.5-flash",
+        contents: [...history.map(m => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.content }] })), { role: "user", parts: [{ text: message }] }],
+        systemInstruction: systemPrompt,
+        userApiKey: apiKey 
+      })
+    });
+
+    const data = await response.json();
+    if (data.text) {
+      steps[1].status = "done";
       onThinkingUpdate?.([...steps]);
-
-      const contents = history.map(msg => ({
-        role: msg.role === "user" ? "user" : "model",
-        parts: [{ text: msg.content }]
-      }));
-      contents.push({ role: "user", parts: [{ text: message }] });
-
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: modelToUse,
-          contents,
-          systemInstruction: "You are Khittara AI, a warm sisterly digital assistant developed by အစ်ကို MinThitSarAung.",
-          userApiKey: apiKey 
-        })
-      });
-
-      if (!response.ok) throw new Error("API Connection Failed");
-
-      const data = await response.json();
-      if (data.text) {
-        steps[2].status = "done";
-        onThinkingUpdate?.([...steps]);
-        if (options.onStream) options.onStream(data.text);
-        return data.text;
-      }
-    } catch (error) {
-      console.warn(`Model ${modelToUse} failed, trying next...`);
-      continue;
+      if (options.onStream) options.onStream(data.text);
+      return data.text;
     }
+  } catch (error) {
+    throw new Error("Connection failed.");
   }
-
-  throw new Error("ညီမလေး ခဏလေး အနားယူပါရစေဦးနော်။ နောက်မှ ပြန်မေးပေးပါရှင်။ 🥰");
+  return "";
 }
 
-// ---------------------------------------------------------
-// ၃။ GENERATE IMAGE
-// ---------------------------------------------------------
+/**
+ * ၄။ Generate Image
+ */
 export async function generateImage(options: { apiKey: string, prompt: string }): Promise<string> {
   const seed = Math.floor(Math.random() * 1000000);
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(options.prompt)}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux`;
