@@ -35,7 +35,9 @@ export interface SendMessageOptions {
   onStream?: (text: string) => void;
 }
 
-// Model Routing logic
+/**
+ * Smart Model Router
+ */
 function routeToBestModel(options: SendMessageOptions): string[] {
   const { message, mode } = options;
   const prompt = message.toLowerCase();
@@ -49,16 +51,19 @@ function routeToBestModel(options: SendMessageOptions): string[] {
 }
 
 // ---------------------------------------------------------
-// ၁။ SUMMARIZE CONVERSATION FUNCTION (ဒီမှာ export ထည့်ထားပါတယ် ✨)
+// ၁။ SUMMARIZE CONVERSATION FUNCTION (အစ်ကို့ပုံထဲက Error ကို ဒီမှာ ပြင်ထားပါတယ် ✨)
 // ---------------------------------------------------------
 export async function summarizeConversation(apiKey: string, history: ChatMessage[]): Promise<string> {
-  if (history.length === 0) return "ဖျက်ထားတဲ့ Chat ဖြစ်လို့ အကျဉ်းချုပ်စရာ မရှိပါဘူးရှင်။";
+  if (!history || history.length === 0) return "ဖျက်ထားတဲ့ Chat ဖြစ်လို့ အကျဉ်းချုပ်စရာ မရှိပါဘူးရှင်။";
 
   const prompt = `Please provide a concise summary of the following chat conversation in Burmese. 
-  Focus on the main topics. Use bullet points.
+  Focus on the main topics discussed and any decisions made. 
+  Keep it friendly and professional. Use bullet points for clarity.
   
-  CONVERSATION:
-  ${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}`;
+  CONVERSATION HISTORY:
+  ${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}
+  
+  SUMMARY:`;
 
   try {
     const response = await fetch("/api/chat", {
@@ -71,10 +76,14 @@ export async function summarizeConversation(apiKey: string, history: ChatMessage
       })
     });
 
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
     const data = await response.json();
     return data.text || "အကျဉ်းချုပ်လို့ မရနိုင်သေးပါဘူးရှင်။";
+    
   } catch (error) {
-    return "နည်းပညာပိုင်းဆိုင်ရာ အခက်အခဲကြောင့် အကျဉ်းချုပ်လို့ မရသေးပါဘူးရှင်။";
+    console.error("Summarization Error:", error);
+    return "Conversation ကို အကျဉ်းချုပ်လို့ မရနိုင်သေးပါဘူးရှင်။ ခေတ္တစောင့်ပြီး ပြန်လည်ကြိုးစားပေးပါရှင်။";
   }
 }
 
@@ -110,10 +119,12 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
         body: JSON.stringify({
           model: modelToUse,
           contents,
-          systemInstruction: "You are Khittara AI, a warm sisterly digital assistant.",
+          systemInstruction: "You are Khittara AI, a warm sisterly digital assistant developed by အစ်ကို MinThitSarAung.",
           userApiKey: apiKey 
         })
       });
+
+      if (!response.ok) throw new Error("API Connection Failed");
 
       const data = await response.json();
       if (data.text) {
@@ -123,10 +134,12 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
         return data.text;
       }
     } catch (error) {
+      console.warn(`Model ${modelToUse} failed, trying next...`);
       continue;
     }
   }
-  throw new Error("Connection failed.");
+
+  throw new Error("ညီမလေး ခဏလေး အနားယူပါရစေဦးနော်။ နောက်မှ ပြန်မေးပေးပါရှင်။ 🥰");
 }
 
 // ---------------------------------------------------------
