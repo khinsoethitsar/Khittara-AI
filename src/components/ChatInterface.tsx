@@ -1696,14 +1696,22 @@ ${stagedCount} architecture changes staged.
                     )}>
                       <button 
                         onClick={() => handleCopy(msg.content, `msg-${idx}`)}
-                        className="hover:text-white/60 transition-colors flex items-center gap-1.5 p-1"
+                        className={cn(
+                          "transition-all flex items-center gap-2 px-3 py-1.5 rounded-xl border",
+                          copiedId === `msg-${idx}` 
+                            ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-500" 
+                            : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"
+                        )}
                       >
                         {copiedId === `msg-${idx}` ? (
-                          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-emerald-500">COPIED!</motion.span>
+                          <>
+                            <CheckCircle2 size={14} />
+                            <span className="font-bold">COPIED!</span>
+                          </>
                         ) : (
                           <>
-                            <Copy size={12} />
-                            <span>COPY</span>
+                            <Copy size={14} />
+                            <span className="font-bold">COPY RESPONSE</span>
                           </>
                         )}
                       </button>

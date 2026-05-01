@@ -169,24 +169,23 @@ async function startServer() {
       }
 
       // Ensure model name format is correct
-      let modelName = model || "models/gemini-3-flash-preview";
-      if (!modelName.startsWith("models/")) {
-        modelName = `models/${modelName}`;
-      }
-
-      console.log(`[Gemini Proxy] Generating content with model: ${modelName}`);
+      let modelName = model || "gemini-3-flash-preview";
+      
+      // Remove any 'models/' prefix if provided to standardize, then we add it back if needed
+      const cleanModelName = modelName.replace(/^models\//, "");
+      
+      console.log(`[Gemini Proxy] Generating content with model: ${cleanModelName}`);
 
       const client = new GoogleGenAI({ 
-        apiKey,
-        // Ensure we can use latest features if the SDK supports version setting
+        apiKey
       });
       
+      // Attempt generation
       const result = await client.models.generateContent({
-        model: modelName,
+        model: `models/${cleanModelName}`,
         contents,
         config: {
           systemInstruction,
-          // Support for potentially longer outputs or specific safety settings
         }
       });
 
