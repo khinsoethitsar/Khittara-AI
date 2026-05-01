@@ -4,12 +4,16 @@ import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, deleteDoc, Timestamp, serverTimestamp, disableNetwork, enableNetwork, setLogLevel } from "firebase/firestore";
 
-import firebaseConfig from "../../firebase-applet-config.json";
-
-// Use environment variable for API Key if available (from GitHub Secrets during build)
+// Safe config loading with environment variables as primary source
 const finalConfig = {
-  ...firebaseConfig,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "khittaraai.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "khittaraai",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "khittaraai.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)"
 };
 
 const app = !getApps().length ? initializeApp(finalConfig) : getApp();
