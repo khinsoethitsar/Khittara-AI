@@ -193,8 +193,8 @@ async function startServer() {
         const projectId = vertexKey.project_id;
         const location = vertexKey.location_id || "us-central1"; 
         // Vertex AI Model path: projects/{project}/locations/{location}/publishers/google/models/{model}
-        // Force gemini-1.5-flash-002 or gemini-2.0-flash as requested
-        const vertexModel = cleanModelName.includes("2.0") ? "gemini-2.0-flash-001" : "gemini-1.5-flash-002";
+        // Use gemini-1.5-flash or gemini-2.0-flash
+        const vertexModel = cleanModelName.includes("2.0") ? "gemini-2.0-flash-001" : "gemini-1.5-flash";
         
         const endpoint = `projects/${projectId}/locations/${location}/publishers/google/models/${vertexModel}`;
 
