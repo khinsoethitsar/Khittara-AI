@@ -1,19 +1,31 @@
-// Ka-Laung Version: 1.0.1 ✨✊
+// Ka-Laung Version: 1.0.2 ✨✊ (Priority Config)
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, onSnapshot, deleteDoc, Timestamp, serverTimestamp, disableNetwork, enableNetwork, setLogLevel } from "firebase/firestore";
 
-// Safe config loading with environment variables as primary source
+// New Config provided by အစ်ကို MinThitSarAung
+const NEW_CONFIG = {
+  apiKey: "AIzaSyDKejA-7500f-X3GrdbWfYbpKDZk7hvp9M",
+  authDomain: "khittaraai.firebaseapp.com",
+  projectId: "khittaraai",
+  storageBucket: "khittaraai.firebasestorage.app",
+  messagingSenderId: "758275209267",
+  appId: "1:758275209267:web:ae0d80cf926e12bb704b46",
+  measurementId: "G-S2GZHCT3J9",
+  firestoreDatabaseId: "(default)"
+};
+
+// Safe config loading: Use environment variables if set, otherwise use the new confirmed config
 const finalConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDKejA-7500f-X3GrdbWfYbpKDZk7hvp9M",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "khittaraai.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "khittaraai",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "khittaraai.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "758275209267",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:758275209267:web:ae0d80cf926e12bb704b46",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-S2GZHCT3J9",
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || NEW_CONFIG.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || NEW_CONFIG.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || NEW_CONFIG.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || NEW_CONFIG.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || NEW_CONFIG.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || NEW_CONFIG.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || NEW_CONFIG.measurementId,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || NEW_CONFIG.firestoreDatabaseId
 };
 
 if (!finalConfig.apiKey) {
