@@ -1,143 +1,137 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: sessions
-    // Document ID: {sessionId}
-    // Fields:
-    //   - id: string (required) - Unique session ID
-    //   - userId: string (required) - Owner's UID
-    //   - title: string (required) - Session title
-    //   - messages: list (required) - Array of message objects
-    //   - updatedAt: string (required) - ISO 8601 timestamp
-    //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required) - User's UID
-    //   - displayName: string (required) - User's display name
-    //   - photoURL: string (optional) - User's avatar URL
-    //   - email: string (required) - User's email
-    //   - updatedAt: string (required) - ISO 8601 timestamp
-    //
-    // ===============================================================
+    
+    // 0. Global safety net: Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
     // ===============================================================
-    // Helper Functions
+    // Global Helper Functions (Pillar 3 & 4)
     // ===============================================================
     
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email in ["minthitsar125226@gmail.com", "freemoneyaungthitsar@gmail.com"] && request.auth.token.email_verified == true));
+      return isSignedIn() && (
+        request.auth.token.email in ["minthitsar125226@gmail.com", "freemoneyaungthitsar@gmail.com"] && 
+        request.auth.token.email_verified == true
+      );
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
 
-    function isValidTimestamp(ts) {
-      return ts is string && ts.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
-    }
-
+    // --- SESSIONS ---
     function isValidSession(data) {
       return data.keys().hasAll(['id', 'userId', 'title', 'messages', 'updatedAt']) &&
-             data.id is string && data.id.size() < 100 &&
-             data.userId is string && data.userId.size() < 100 &&
-             data.title is string && data.title.size() <= 500 &&
+             data.keys().size() == 5 &&
+             isValidId(data.id) &&
+             isValidId(data.userId) &&
+             data.title is string && data.title.size() <= 1000 &&
              data.messages is list && data.messages.size() <= 1000 &&
-             isValidTimestamp(data.updatedAt);
-    }
-
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'displayName', 'email', 'updatedAt']) &&
-             data.uid is string && data.uid.size() < 100 &&
-             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
-             isValidEmail(data.email) &&
-             isValidTimestamp(data.updatedAt) &&
-             (!('role' in data) || data.role in ['admin', 'user']);
-    }
-
-    function isValidLiveChatMessage(data) {
-      return data.keys().hasAll(['message', 'senderId', 'senderName', 'createdAt']) &&
-             data.keys().size() == 4 &&
-             data.message is string && data.message.size() >= 1 && data.message.size() <= 1000 &&
-             data.senderId is string && data.senderId == request.auth.uid &&
-             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 100 &&
-             data.createdAt == request.time;
+             (data.updatedAt is timestamp || data.updatedAt is string);
     }
 
     match /sessions/{sessionId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuthenticated() && 
-                      isValidSession(request.resource.data) && 
-                      request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId) && 
-                      isValidSession(request.resource.data) &&
-                      request.resource.data.userId == resource.data.userId &&
-                      request.resource.data.userId == request.auth.uid; // Ensure UID doesn't change
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow get: if isSignedIn() && (request.auth.uid == existing().userId || isAdmin());
+      allow list: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      
+      allow create: if isSignedIn() && 
+                      isValidSession(incoming()) && 
+                      incoming().userId == request.auth.uid;
+                      
+      allow update: if isSignedIn() && 
+                      isValidSession(incoming()) &&
+                      request.auth.uid == existing().userId &&
+                      incoming().userId == existing().userId;
+                      
+      allow delete: if isSignedIn() && (request.auth.uid == existing().userId || isAdmin());
+    }
+
+    // --- USERS ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() <= 200 &&
+             (data.updatedAt is timestamp || data.updatedAt is string);
     }
 
     match /users/{userId} {
-      // PII Protection: Only owner or admin can read full profile (including email)
-      allow read: if isOwner(userId) || isAdmin();
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
       
-      allow create: if isOwner(userId) && 
-                      isValidUser(request.resource.data) &&
-                      (!('role' in request.resource.data) || request.resource.data.role == 'user'); // Can't self-promote to admin
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming());
       
-      allow update: if isOwner(userId) && 
-                      isValidUser(request.resource.data) &&
-                      (request.resource.data.role == resource.data.role || isAdmin()); // Can't change role unless admin
+      allow update: if isSignedIn() && userId == request.auth.uid && isValidUser(incoming()) &&
+                      incoming().uid == existing().uid &&
+                      (incoming().get('role', 'user') == existing().get('role', 'user') || isAdmin());
     }
 
-    match /live_chat/{messageId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidLiveChatMessage(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    match /tasks/{taskId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuthenticated() && 
-                      request.resource.data.userId == request.auth.uid &&
-                      request.resource.data.keys().hasAll(['id', 'userId', 'title', 'completed', 'createdAt', 'updatedAt']) &&
-                      request.resource.data.id is string &&
-                      request.resource.data.title is string &&
-                      request.resource.data.completed is bool &&
-                      isValidTimestamp(request.resource.data.createdAt) &&
-                      isValidTimestamp(request.resource.data.updatedAt);
-      allow update: if isOwner(resource.data.userId) &&
-                      request.resource.data.userId == resource.data.userId &&
-                      request.resource.data.keys().hasAll(['id', 'userId', 'title', 'completed', 'createdAt', 'updatedAt']) &&
-                      isValidTimestamp(request.resource.data.updatedAt);
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
-    }
-
-    match /memories/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) && 
-                      request.resource.data.userId == request.auth.uid &&
-                      isValidTimestamp(request.resource.data.updatedAt);
+    // --- CREATOR MEMORIES ---
+    function isValidCreatorMemory(data) {
+      return data.keys().hasAll(['id', 'fact', 'source', 'timestamp']) &&
+             data.keys().size() == 4 &&
+             isValidId(data.id) &&
+             data.fact is string && data.fact.size() >= 1 && data.fact.size() <= 10000 &&
+             data.source in ['guest', 'creator'] &&
+             (data.timestamp is timestamp || data.timestamp == request.time);
     }
 
     match /creator_memories/{memoryId} {
-      // Global knowledge about creator: Publicly readable for guests to know the creator
       allow read: if true; 
-      // Only admin (creator) can write/update/delete facts
-      allow write: if isAdmin();
+      
+      allow create: if (isAdmin() || (isSignedIn() && incoming().source == 'guest')) &&
+                      isValidCreatorMemory(incoming());
+                      
+      allow update, delete: if isAdmin();
+    }
+
+    // --- USER MEMORIES ---
+    match /memories/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- LIVE CHAT ---
+    function isValidLiveChat(data) {
+      return data.keys().hasAll(['message', 'senderId', 'senderName', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 2000 &&
+             data.senderId == request.auth.uid &&
+             data.senderName is string &&
+             (data.createdAt is timestamp || data.createdAt == request.time);
+    }
+
+    match /live_chat/{messageId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidLiveChat(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // --- TASKS ---
+    match /tasks/{taskId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && request.auth.uid == existing().userId;
+      allow delete: if isSignedIn() && (request.auth.uid == existing().userId || isAdmin());
     }
   }
 }
