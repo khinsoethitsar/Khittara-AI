@@ -1043,36 +1043,57 @@ export default function App() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="text-[11px] font-bold uppercase tracking-wider text-white/30 flex items-center gap-2">
-                          <Key className="w-3 h-3" /> Gemini API Key
+                          <Sparkles className="w-3 h-3 text-primary" /> AI Service Provider
                         </label>
-                        {validationStatus.google !== "idle" && (
-                          <span className={cn(
-                            "text-[9px] font-bold uppercase px-2 py-0.5 rounded-full",
-                            validationStatus.google === "success" ? "bg-emerald-500/10 text-emerald-500" : 
-                            validationStatus.google === "error" ? "bg-rose-500/10 text-rose-500" : "bg-white/5 text-white/30"
-                          )}>
-                            {validationStatus.google}
-                          </span>
-                        )}
+                        <div className="flex p-0.5 bg-white/5 rounded-lg border border-white/5">
+                          <button 
+                            onClick={() => !geminiKey.trim().startsWith('{') && setGeminiKey('')}
+                            className={cn(
+                              "px-2 py-1 text-[9px] font-bold rounded-md transition-all",
+                              !geminiKey.trim().startsWith('{') ? "bg-primary/20 text-primary" : "text-white/20"
+                            )}
+                          >
+                            Gemini API
+                          </button>
+                          <button 
+                            onClick={() => {
+                              if (!geminiKey.trim().startsWith('{')) {
+                                setGeminiKey('{\n  "project_id": "YOUR_PROJECT_ID",\n  "private_key": "YOUR_PRIVATE_KEY",\n  "client_email": "YOUR_CLIENT_EMAIL"\n}');
+                              }
+                            }}
+                            className={cn(
+                              "px-2 py-1 text-[9px] font-bold rounded-md transition-all",
+                              geminiKey.trim().startsWith('{') ? "bg-purple-500/20 text-purple-400" : "text-white/20"
+                            )}
+                          >
+                            Vertex AI (JSON)
+                          </button>
+                        </div>
                       </div>
                       <div className="relative group">
                         <textarea 
                           value={geminiKey}
-                          onChange={(e) => setGeminiKey(e.target.value.trim())}
-                          placeholder="AIzaSy..."
+                          onChange={(e) => setGeminiKey(e.target.value)}
+                          placeholder={geminiKey.trim().startsWith('{') ? "Paste Service Account JSON here..." : "Enter Gemini API Key..."}
                           autoComplete="off"
                           spellCheck={false}
-                          rows={2}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-all resize-none font-mono"
+                          rows={geminiKey.trim().startsWith('{') ? 8 : 2}
+                          className={cn(
+                            "w-full bg-white/5 border rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none transition-all resize-none font-mono scrollbar-thin",
+                            geminiKey.trim().startsWith('{') ? "border-purple-500/30 focus:border-purple-500" : "border-white/10 focus:border-primary/50"
+                          )}
                         />
-                        <div className="absolute right-3 top-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute right-3 top-3 flex gap-1 opacity-100 group-hover:opacity-100 transition-opacity">
                           {geminiKey && (
                             <button 
                               onClick={() => handleValidateKey("google", geminiKey)}
                               disabled={validationStatus.google === "loading"}
-                              className="p-2 bg-primary/20 hover:bg-primary/30 rounded-xl text-primary transition-all text-[10px] font-bold uppercase flex items-center gap-1.5"
+                              className={cn(
+                                "p-2 rounded-xl transition-all text-[10px] font-bold uppercase flex items-center gap-1.5",
+                                geminiKey.trim().startsWith('{') ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-primary/20 text-primary hover:bg-primary/30"
+                              )}
                             >
-                              {validationStatus.google === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                              {validationStatus.google === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3" />}
                               Validate
                             </button>
                           )}
@@ -1086,6 +1107,13 @@ export default function App() {
                           )}
                         </div>
                       </div>
+                      <p className="text-[9px] text-white/20 italic ml-1">
+                        {geminiKey.trim().startsWith('{') ? (
+                          <>Vertex AI Mode အသက်ဝင်နေပါတယ်ရှင်။ Google Cloud Service Account JSON ကို ထည့်ပေးပါရှင်။ 🥰✨</>
+                        ) : (
+                          <>Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-primary hover:underline">API Key</a> ကို ဒီမှာ ထည့်ပေးပါရှင်။ JSON key ရှိရင် Vertex Tab ကို နှိပ်ပါရှင်။ 🥰✨</>
+                        )}
+                      </p>
                     </div>
 
                     <div className="space-y-3">
