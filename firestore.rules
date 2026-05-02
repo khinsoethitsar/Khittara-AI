@@ -106,8 +106,7 @@ service cloud.firestore {
 
     // --- USER MEMORIES ---
     match /memories/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // --- LIVE CHAT ---

@@ -397,11 +397,16 @@ export default function App() {
           setDeepMemoryState(updatedMemory as any);
           setDeepMemory(updatedMemory as any);
           
-          // Save to Firestore
+          // Save to Firestore - handle errors gracefully
           try {
             await setDoc(doc(db, "memories", user.uid), updatedMemory);
-          } catch (error) {
-            handleFirestoreError(error, OperationType.WRITE, `memories/${user.uid}`);
+          } catch (error: any) {
+            // Silently log permission errors, don't throw to UI
+            if (error.message?.includes('permission') || error.message?.includes('insufficient')) {
+              console.warn("Memory could not be saved to Firestore (Permission issue), but local memory is updated. ✨");
+            } else {
+              handleFirestoreError(error, OperationType.WRITE, `memories/${user.uid}`);
+            }
           }
         }
       } catch (err) {
