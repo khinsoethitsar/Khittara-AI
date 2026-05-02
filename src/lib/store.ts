@@ -28,6 +28,7 @@ export interface Task {
 
 const PROMPTS_KEY = "kalaung_prompts";
 const API_KEY_KEY = "kalaung_gemini_key";
+const VERTEX_KEY_KEY = "kalaung_vertex_key";
 const OPENROUTER_API_KEY_KEY = "kalaung_openrouter_key";
 const LANG_KEY = "kalaung_lang";
 const KB_KEY = "kalaung_knowledge_base";
@@ -208,6 +209,22 @@ export function setApiKey(key: string) {
   if (!isStorageAvailable()) return;
   try {
     localStorage.setItem(API_KEY_KEY, key);
+  } catch (e) { console.error(e); }
+}
+
+export function getVertexKey(): string {
+  if (!isStorageAvailable()) return "";
+  try {
+    return localStorage.getItem(VERTEX_KEY_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setVertexKey(key: string) {
+  if (!isStorageAvailable()) return;
+  try {
+    localStorage.setItem(VERTEX_KEY_KEY, key);
   } catch (e) { console.error(e); }
 }
 

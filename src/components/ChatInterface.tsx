@@ -56,6 +56,7 @@ import {
 } from "../lib/gemini";
 import { 
   getApiKey, 
+  getVertexKey,
   getAiMode, 
   setAiMode, 
   getOpenRouterApiKey,
@@ -344,7 +345,7 @@ export default function ChatInterface({
     const logId = addActivityLog("Generating conversation summary...", "loading");
     
     try {
-      const result = await summarizeConversation(getApiKey() || "", messages);
+      const result = await summarizeConversation(getApiKey() || "", messages, getVertexKey());
       setSummary(result);
       setShowSummaryModal(true);
       updateActivityLog(logId, "success", "Summary generated successfully.");
@@ -1035,8 +1036,9 @@ export default function ChatInterface({
 
   const handleSend = async (overrideInput?: string) => {
     const apiKey = getApiKey();
+    const vertexKey = getVertexKey();
     const openRouterApiKey = getOpenRouterApiKey();
-    if (!apiKey && !openRouterApiKey) {
+    if (!apiKey && !vertexKey && !openRouterApiKey) {
       alert("Settings ထဲမှာ API Key အရင်ထည့်ပေးပါရှင်။");
       return;
     }
@@ -1111,6 +1113,7 @@ export default function ChatInterface({
     try {
       const responsePromise = sendMessageAdvanced({
         apiKey,
+        vertexKey,
         openrouterApiKey: openRouterApiKey,
         history: messages,
         message: userMessage,

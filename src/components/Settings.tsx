@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Save, CheckCircle, X, Palette, Image as ImageIcon, Sparkles, RefreshCw, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getApiKey, setApiKey as saveToStore, getOpenRouterApiKey, setOpenRouterApiKey, getBackgroundImage, setBackgroundImage } from '../lib/store';
+import { getApiKey, setApiKey as saveToStore, getVertexKey, setVertexKey, getOpenRouterApiKey, setOpenRouterApiKey, getBackgroundImage, setBackgroundImage } from '../lib/store';
 import { cn } from '../lib/utils';
 
 interface SettingsProps {
@@ -12,23 +12,34 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
   const [apiKey, setApiKey] = useState('');
+  const [vertexKey, setVertexKeyLocal] = useState('');
   const [openRouterKey, setOpenRouterKey] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'appearance'>('general');
+  const [keyMode, setKeyMode] = useState<'gemini' | 'vertex'>('gemini');
   const [bgPrompt, setBgPrompt] = useState('');
   const [currentBg, setCurrentBg] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    setApiKey(getApiKey());
+    const savedApiKey = getApiKey();
+    const savedVertexKey = getVertexKey();
+    setApiKey(savedApiKey);
+    setVertexKeyLocal(savedVertexKey);
     setOpenRouterKey(getOpenRouterApiKey());
     setCurrentBg(getBackgroundImage());
+
+    // Auto-select mode based on what's available
+    if (savedVertexKey && !savedApiKey) {
+      setKeyMode('vertex');
+    }
   }, [isOpen]);
 
   const handleSave = () => {
     saveToStore(apiKey);
+    setVertexKey(vertexKey);
     setOpenRouterApiKey(openRouterKey);
-    onSave(apiKey);
+    onSave(apiKey); // Pass standard key for client-side if needed
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
@@ -110,23 +121,19 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
                           </label>
                           <div className="flex p-1 bg-zinc-200/50 dark:bg-zinc-700/50 rounded-xl">
                             <button 
-                              onClick={() => !apiKey.trim().startsWith('{') && setApiKey('')}
+                              onClick={() => setKeyMode('gemini')}
                               className={cn(
                                 "px-3 py-1 text-[10px] font-bold rounded-lg transition-all",
-                                !apiKey.trim().startsWith('{') ? "bg-white dark:bg-zinc-600 text-blue-600 shadow-sm" : "text-zinc-500"
+                                keyMode === 'gemini' ? "bg-white dark:bg-zinc-600 text-blue-600 shadow-sm" : "text-zinc-500"
                               )}
                             >
                               Gemini API
                             </button>
                             <button 
-                              onClick={() => {
-                                if (!apiKey.trim().startsWith('{')) {
-                                  setApiKey('{\n  "project_id": "YOUR_PROJECT_ID",\n  "private_key": "YOUR_PRIVATE_KEY",\n  "client_email": "YOUR_CLIENT_EMAIL"\n}');
-                                }
-                              }}
+                              onClick={() => setKeyMode('vertex')}
                               className={cn(
                                 "px-3 py-1 text-[10px] font-bold rounded-lg transition-all",
-                                apiKey.trim().startsWith('{') ? "bg-white dark:bg-zinc-600 text-purple-600 shadow-sm" : "text-zinc-500"
+                                keyMode === 'vertex' ? "bg-white dark:bg-zinc-600 text-purple-600 shadow-sm" : "text-zinc-500"
                               )}
                             >
                               Vertex AI (JSON)
@@ -135,22 +142,29 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
                         </div>
 
                         <div className="relative">
-                          <textarea
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder={apiKey.trim().startsWith('{') ? "Paste Service Account JSON here..." : "Enter Gemini API Key..."}
-                            rows={apiKey.trim().startsWith('{') ? 10 : 3}
-                            className={cn(
-                              "w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin",
-                              apiKey.trim().startsWith('{') ? "border-purple-300 dark:border-purple-900/50" : "border-zinc-200 dark:border-zinc-700"
-                            )}
-                          />
+                          {keyMode === 'gemini' ? (
+                            <textarea
+                              value={apiKey}
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder="Enter Gemini API Key (e.g. AIzaSy...)"
+                              rows={3}
+                              className="w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin"
+                            />
+                          ) : (
+                            <textarea
+                              value={vertexKey}
+                              onChange={(e) => setVertexKeyLocal(e.target.value)}
+                              placeholder='{ "project_id": "...", "private_key": "...", ... }'
+                              rows={10}
+                              className="w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border border-purple-300 dark:border-purple-900/50 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin"
+                            />
+                          )}
                           <Key className={cn(
                             "absolute w-5 h-5 left-4 top-4 transition-colors",
-                            apiKey.trim().startsWith('{') ? "text-purple-400" : "text-zinc-400"
+                            keyMode === 'vertex' ? "text-purple-400" : "text-zinc-400"
                           )} />
                           
-                          {apiKey.trim().startsWith('{') && (
+                          {keyMode === 'vertex' && (
                             <div className="absolute top-3 right-3">
                               <span className="flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
@@ -163,15 +177,15 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
                         <div className="flex items-start gap-2 px-1">
                           <div className={cn(
                             "mt-0.5 p-1 rounded-md",
-                            apiKey.trim().startsWith('{') ? "bg-purple-100 dark:bg-purple-900/30" : "bg-blue-100 dark:bg-blue-900/30"
+                            keyMode === 'vertex' ? "bg-purple-100 dark:bg-purple-900/30" : "bg-blue-100 dark:bg-blue-900/30"
                           )}>
-                            <Sparkles size={12} className={apiKey.trim().startsWith('{') ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"} />
+                            <Sparkles size={12} className={keyMode === 'vertex' ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400"} />
                           </div>
                           <p className="text-[10px] text-zinc-500 leading-relaxed italic">
-                            {apiKey.trim().startsWith('{') ? (
+                            {keyMode === 'vertex' ? (
                               <>Vertex AI Mode အသက်ဝင်နေပါတယ်ရှင်။ Google Cloud Service Account JSON ကို ဒီထဲမှာ ကူးထည့်ပေးရမှာပါရှင်။ 🥰✨</>
                             ) : (
-                              <>Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline font-bold">API Key</a> ကို ဒီမှာ ထည့်ပေးပါရှင်။ JSON key ရှိရင်တော့ ဘေးက button လေးကို နှိပ်လိုက်ပါရှင်။ 🥰✨</>
+                              <>Google AI Studio <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline font-bold">API Key</a> ကို ဒီမှာ ထည့်ပေးပါရှင်။ Vertex Key ကိုတော့ ဘေးက Tab လေးမှာ သွားထည့်လို့ရပါတယ်ရှင်။ 🥰✨</>
                             )}
                           </p>
                         </div>

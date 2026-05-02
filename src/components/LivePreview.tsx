@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { LiveProvider, LiveEditor, LiveError, LivePreview as ReactLivePreview, LiveContext } from "react-live";
 import { Terminal, Maximize2, Minimize2, Copy, Check, Play, RefreshCw, Layout, Code2, Wand2, Loader2, AlertCircle, Eye, Rocket, Smartphone, Tablet, Monitor, Github, ChevronRight, Save, Send, X } from "lucide-react";
 import { cn } from "../lib/utils";
-import { getPlaygroundCode, getApiKey, setPlaygroundCode, getStagedActions, getAiMode, setPreviewError, getSavedRepoInfo, getGithubToken, setStagedActionsStore } from "../lib/store";
+import { getPlaygroundCode, getApiKey, getVertexKey, setPlaygroundCode, getStagedActions, getAiMode, setPreviewError, getSavedRepoInfo, getGithubToken, setStagedActionsStore } from "../lib/store";
 import * as LucideIcons from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { fixCode } from "../lib/gemini";
@@ -205,11 +205,13 @@ export default function LivePreview({ isSplit, onClose }: LivePreviewProps) {
   };
 
   const handleAutoFix = async () => {
-    if (!currentError || !apiKey) return;
+    const apiKey = getApiKey();
+    const vertexKey = getVertexKey();
+    if (!currentError || (!apiKey && !vertexKey)) return;
     
     setIsHealing(true);
     try {
-      const fixedCode = await fixCode(apiKey, code, currentError);
+      const fixedCode = await fixCode(apiKey || "", code, currentError, vertexKey);
       if (fixedCode) {
         setCode(fixedCode);
         setPlaygroundCode(fixedCode);

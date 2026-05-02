@@ -17,6 +17,7 @@ export interface ThinkingStep {
 
 export interface SendMessageOptions {
   apiKey: string;
+  vertexKey?: string;
   openrouterApiKey?: string;
   history: ChatMessage[];
   message: string;
@@ -57,37 +58,37 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // 3. Check for specific reasoning requests
   const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
 
-  // Priority stack focusing on Gemini 2.0 Flash as requested
+  // Priority stack focusing on Gemini 2.0 Flash
   if (isCoding || isReasoning || hasFiles) {
     return [
-      "gemini-2.0-flash",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash",
-      "gemini-2.0-flash-exp"
+      "models/gemini-2.0-flash",
+      "models/gemini-1.5-pro",
+      "models/gemini-1.5-flash",
+      "models/gemini-1.5-pro-latest"
     ];
   }
 
   if (isCreativeHeader) {
     return [
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro"
+      "models/gemini-2.0-flash",
+      "models/gemini-1.5-flash",
+      "models/gemini-1.5-pro"
     ];
   }
 
   // Default to Gemini 2.0 Flash for speed and intelligence
   return [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-2.0-flash-lite-preview"
+    "models/gemini-2.0-flash",
+    "models/gemini-1.5-flash",
+    "models/gemini-2.0-flash-lite-preview-02-05"
   ];
 }
 
 export const PREFERRED_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro",
-  "gemini-2.0-flash-lite-preview"
+  "models/gemini-2.0-flash",
+  "models/gemini-1.5-flash",
+  "models/gemini-1.5-pro",
+  "models/gemini-2.0-flash-lite-preview-02-05"
 ];
 
 export const OPENROUTER_MODELS = [
@@ -336,6 +337,7 @@ function isSupportedMimeType(mimeType: string): boolean {
 export async function sendMessageAdvanced(options: SendMessageOptions): Promise<string> {
   const { 
     apiKey, 
+    vertexKey,
     history, 
     message, 
     contextUrl, 
@@ -528,7 +530,8 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
           model: modelToUse,
           contents,
           systemInstruction: systemPrompt,
-          userApiKey: apiKey // Safely passed to backend
+          userApiKey: apiKey, // Safely passed to backend
+          vertexKey: vertexKey
         })
       });
 
@@ -599,7 +602,7 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
   throw new Error(`နည်းပညာဆိုင်ရာ အခက်အခဲလေးတစ်ခု ဖြစ်သွားလို့ပါရှင်- ${errorMsg}`);
 }
 
-export async function fixCode(apiKey: string, code: string, error: string): Promise<string> {
+export async function fixCode(apiKey: string, code: string, error: string, vertexKey?: string): Promise<string> {
   const prompt = `You are an expert React and Tailwind CSS developer.
   The following code has an error. Please fix the error and return ONLY the corrected code without any markdown formatting or explanations.
   
@@ -619,7 +622,8 @@ export async function fixCode(apiKey: string, code: string, error: string): Prom
         body: JSON.stringify({
           model: modelName,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          userApiKey: apiKey
+          userApiKey: apiKey,
+          vertexKey: vertexKey
         })
       });
 
@@ -660,7 +664,7 @@ export async function validateApiKey(provider: "google" | "openrouter" | "openai
   }
 }
 
-export async function summarizeConversation(apiKey: string, history: ChatMessage[]): Promise<string> {
+export async function summarizeConversation(apiKey: string, history: ChatMessage[], vertexKey?: string): Promise<string> {
   if (history.length === 0) return "ဖျက်ထားတဲ့ Chat ဖြစ်လို့ အကျဉ်းချုပ်စရာ မရှိပါဘူးရှင်။";
 
   const isVerified = history.some(m => m.content.includes("Min33433433@"));
@@ -687,7 +691,8 @@ export async function summarizeConversation(apiKey: string, history: ChatMessage
           body: JSON.stringify({
             model: modelToUse,
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            userApiKey: apiKey
+            userApiKey: apiKey,
+            vertexKey: vertexKey
           })
         });
 

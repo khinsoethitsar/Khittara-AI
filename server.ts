@@ -5,7 +5,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { PredictionServiceClient, helpers } from "@google-cloud/aiplatform";
 
 dotenv.config();
@@ -162,56 +162,71 @@ async function startServer() {
   // Secure Gemini Proxy
   app.post("/api/chat", async (req, res) => {
     try {
-      const { model, contents, systemInstruction, userApiKey } = req.body;
-      const apiKey = userApiKey || process.env.GEMINI_API_KEY;
-
-      if (!apiKey) {
-        return res.status(401).json({ error: "Gemini API Key is required. Please provide it in settings or environment." });
-      }
-
-      // Check if apiKey is a JSON string (Vertex AI Service Account)
+      const { model, contents, systemInstruction, userApiKey, vertexKey: clientVertexKey } = req.body;
+      let apiKey = userApiKey || process.env.GEMINI_API_KEY;
+      
+      // Determine if we should use Vertex AI
       let isVertex = false;
-      let vertexKey: any = null;
-      try {
-        if (apiKey.trim().startsWith('{')) {
-          vertexKey = JSON.parse(apiKey);
-          if (vertexKey.project_id && vertexKey.private_key) {
+      let vertexConfig: any = null;
+
+      // 1. Check if clientVertexKey is provided (higher priority if intended)
+      if (clientVertexKey) {
+        try {
+          if (typeof clientVertexKey === 'string' && clientVertexKey.trim().startsWith('{')) {
+            vertexConfig = JSON.parse(clientVertexKey);
+          } else if (typeof clientVertexKey === 'object') {
+            vertexConfig = clientVertexKey;
+          }
+          
+          if (vertexConfig && vertexConfig.project_id && vertexConfig.private_key) {
             isVertex = true;
           }
+        } catch (e) {
+          console.warn("Invalid clientVertexKey provided");
         }
-      } catch (e) {
-        isVertex = false;
+      }
+
+      // 2. Fallback: Check if userApiKey itself is a Vertex JSON
+      if (!isVertex && apiKey && typeof apiKey === 'string' && apiKey.trim().startsWith('{')) {
+        try {
+          vertexConfig = JSON.parse(apiKey);
+          if (vertexConfig.project_id && vertexConfig.private_key) {
+            isVertex = true;
+          }
+        } catch (e) {
+          isVertex = false;
+        }
+      }
+
+      if (!isVertex && !apiKey) {
+        return res.status(401).json({ error: "API Key or Vertex AI Credentials required." });
       }
 
       // Standardize model name
-      let modelName = model || "gemini-3-flash-preview";
+      let modelName = model || "gemini-2.0-flash";
       const cleanModelName = modelName.replace(/^models\//, "");
 
       if (isVertex) {
         console.log(`[Vertex AI Proxy] Generating content with model: ${cleanModelName}`);
         
-        const projectId = vertexKey.project_id;
-        const location = vertexKey.location_id || "us-central1"; 
+        const projectId = vertexConfig.project_id;
+        const location = vertexConfig.location_id || "us-central1"; 
+        
         // Vertex AI Model path: projects/{project}/locations/{location}/publishers/google/models/{model}
-        // Use gemini-1.5-flash or gemini-2.0-flash
-        const vertexModel = cleanModelName.includes("2.0") ? "gemini-2.0-flash-001" : "gemini-1.5-flash";
+        const vertexModel = cleanModelName.includes("2.0") ? "gemini-2.0-flash-001" : "gemini-1.5-flash-002";
         
         const endpoint = `projects/${projectId}/locations/${location}/publishers/google/models/${vertexModel}`;
 
         const client = new PredictionServiceClient({
           credentials: {
-            client_email: vertexKey.client_email,
-            private_key: vertexKey.private_key,
+            client_email: vertexConfig.client_email,
+            private_key: vertexConfig.private_key,
           },
           projectId,
           apiEndpoint: `${location}-aiplatform.googleapis.com`,
         });
 
-        // Map contents to Vertex AI Predict format
-        // Vertex AI Gemini REST API expects a slightly different structure than the client SDKs if using raw predict
-        // But the PredictionServiceClient can be used or we can use the dedicated Vertex AI SDK.
-        // For simplicity and correctness with @google-cloud/aiplatform, we use the REST-style prediction
-        
+        // Vertex AI Gemini REST structure mapping
         const instances = [
           helpers.toValue({
             contents,
@@ -242,23 +257,23 @@ async function startServer() {
       // Google AI Studio Logic (Default)
       console.log(`[Gemini Proxy] Generating content with model: ${cleanModelName}`);
 
-      const client = new GoogleGenAI({ 
-        apiKey
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const modelInstance = genAI.getGenerativeModel({ 
+        model: cleanModelName, 
+        systemInstruction: systemInstruction ? { role: 'system', parts: [{ text: systemInstruction }] } : undefined
       });
       
-      const result = await client.models.generateContent({
-        model: `models/${cleanModelName}`,
-        contents,
-        config: {
-          systemInstruction,
-        }
+      const result = await modelInstance.generateContent({
+        contents
       });
 
-      if (!result || !result.text) {
+      const text = result.response.text();
+
+      if (!text) {
         throw new Error("Empty response from Gemini API");
       }
 
-      res.json({ text: result.text });
+      res.json({ text });
     } catch (error: any) {
       const errMsg = error.message || String(error);
       
@@ -279,6 +294,13 @@ async function startServer() {
         });
       }
 
+      if (errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("429")) {
+        return res.status(429).json({ 
+          error: "RESOURCE_EXHAUSTED",
+          details: "Your prepayment credits are depleted. Please check AI Studio billing or use Vertex AI." 
+        });
+      }
+
       res.status(error.status || 500).json({ error: "Gemini Service Error", details: logMsg });
     }
   });
@@ -293,20 +315,18 @@ async function startServer() {
         return res.status(401).json({ error: "API Key required for synthesis." });
       }
 
-      const client = new GoogleGenAI({ apiKey });
+      const client = new GoogleGenerativeAI(apiKey);
       const modelName = "imagen-3.0-generate-001"; // Priority synthesis model
 
-      const result = await client.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          imageConfig: {
-            aspectRatio: aspectRatio || "1:1"
-          }
-        }
+      const modelInstance = client.getGenerativeModel({
+        model: modelName
       });
 
-      const candidate = result.candidates?.[0];
+      const result = await modelInstance.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const candidate = result.response.candidates?.[0];
       if (candidate?.content?.parts) {
         for (const part of candidate.content.parts) {
           if (part.inlineData) {
@@ -346,13 +366,13 @@ async function startServer() {
       }
 
       if (provider === "google") {
-        const client = new GoogleGenAI({ apiKey });
+        const client = new GoogleGenerativeAI(apiKey);
         // Use 1.5 Flash as it's the most common/accessible for validation
-        const result = await client.models.generateContent({
-          model: "gemini-1.5-flash",
-          contents: [{ role: 'user', parts: [{ text: "hi" }] }]
+        const modelInstance = client.getGenerativeModel({
+          model: "gemini-1.5-flash"
         });
-        return res.json({ valid: !!result.text });
+        const result = await modelInstance.generateContent("hi");
+        return res.json({ valid: !!result.response.text() });
       }
       
       // Fallback for other providers if needed
