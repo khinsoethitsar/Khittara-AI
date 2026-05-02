@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Save, CheckCircle, X, Palette, Image as ImageIcon, Sparkles, RefreshCw, Trash2 } from 'lucide-react';
+import { Key, Save, CheckCircle, X, Palette, Image as ImageIcon, Sparkles, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getApiKey, setApiKey as saveToStore, getVertexKey, setVertexKey, getOpenRouterApiKey, setOpenRouterApiKey, getBackgroundImage, setBackgroundImage } from '../lib/store';
 import { cn } from '../lib/utils';
@@ -56,6 +56,29 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
     // For now, we guide the user to ask the assistant
     alert("အစ်ကို MinThitSarAung ရှင်... ကလောင်က Background ကို generate လုပ်ပေးဖို့ အဆင်သင့်ရှိပါတယ်ရှင်။ Chat ထဲမှာ 'generate background: " + bgPrompt + "' လို့ ပြောပေးပါဦးနော်။ ✨💖");
     setIsGenerating(false);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      alert("JSON ဖိုင်လေးပဲ တင်ပေးပါဦးနော်။ 🥰✨");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        // Validate JSON
+        JSON.parse(content);
+        setVertexKeyLocal(content);
+      } catch (err) {
+        alert("JSON ဖိုင်က မမှန်ကန်ပါဘူးရှင်။ ပြန်စစ်ပေးပါဦးနော်။ 💖");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -165,11 +188,28 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
                           )} />
                           
                           {keyMode === 'vertex' && (
-                            <div className="absolute top-3 right-3">
-                              <span className="flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                              </span>
+                            <div className="absolute top-3 right-3 flex flex-col gap-2">
+                              {/* Pulse Indicator */}
+                              <div className="flex justify-end">
+                                <span className="flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                                </span>
+                              </div>
+                              
+                              {/* File Upload Button */}
+                              <label className="p-2 bg-purple-100 dark:bg-purple-900 shadow-md rounded-xl cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-800 transition-all border border-purple-200 dark:border-purple-700 group">
+                                <Upload size={16} className="text-purple-600 dark:text-purple-300" />
+                                <input 
+                                  type="file" 
+                                  accept=".json,application/json" 
+                                  onChange={handleFileUpload}
+                                  className="hidden" 
+                                />
+                                <div className="absolute right-full mr-2 top-0 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
+                                  Upload JSON File
+                                </div>
+                              </label>
                             </div>
                           )}
                         </div>

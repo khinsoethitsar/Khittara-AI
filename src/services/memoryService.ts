@@ -49,8 +49,6 @@ export async function extractMemory(history: ChatMessage[], existingMemory?: Use
   const apiKey = getApiKey();
   if (!apiKey || history.length < 2) return null;
 
-  const ai = new GoogleGenAI({ apiKey });
-  
   const conversationText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n");
   const existingMemoryText = existingMemory ? JSON.stringify(existingMemory, null, 2) : "No existing memory.";
 
@@ -65,31 +63,41 @@ ${conversationText}
 ${existingMemoryText}
 `;
 
-  const modelsToTry = ["gemini-2.0-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-1.5-flash-latest"];
+  const modelsToTry = ["gemini-1.5-flash", "gemini-2.0-flash"];
 
-  for (const modelName of modelsToTry) {
+  for (const modelToUse of modelsToTry) {
     try {
-      const response = await ai.models.generateContent({ 
-        model: modelName,
-        contents: prompt,
-        config: { 
-          responseMimeType: "application/json"
-        }
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: modelToUse,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          userApiKey: apiKey,
+          systemInstruction: "You are a JSON-only memory extraction engine. Return ONLY valid JSON."
+        })
       });
       
-      const responseText = response.text;
-      if (!responseText) continue;
-      return JSON.parse(responseText) as UserMemory;
-    } catch (error: any) {
-      const errorMsg = error.message || "";
-      const isQuotaError = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("busy");
-      const isNotFoundError = errorMsg.includes("404") || errorMsg.includes("not found") || errorMsg.includes("NOT_FOUND");
-      
-      if ((isQuotaError || isNotFoundError) && modelsToTry.indexOf(modelName) < modelsToTry.length - 1) {
-        console.warn(`Memory extraction failed with ${modelName} (${isNotFoundError ? '404' : '429'}), trying next...`);
-        continue;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server returned ${response.status}`);
       }
-      console.error(`Memory Extraction Error with ${modelName}:`, error);
+
+      const data = await response.json();
+      if (!data.text) continue;
+      
+      // Attempt to find and parse JSON in case model added markdown wrapping
+      let jsonStr = data.text.trim();
+      if (jsonStr.startsWith("```json")) {
+        jsonStr = jsonStr.replace(/^```json\n/, "").replace(/\n```$/, "");
+      } else if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```\n/, "").replace(/\n```$/, "");
+      }
+      
+      return JSON.parse(jsonStr) as UserMemory;
+    } catch (error: any) {
+      console.warn(`Memory Extraction Attempt with ${modelToUse} failed:`, error.message);
+      if (modelsToTry.indexOf(modelToUse) < modelsToTry.length - 1) continue;
       break;
     }
   }

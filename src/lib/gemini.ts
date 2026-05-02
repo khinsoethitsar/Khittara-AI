@@ -1,4 +1,3 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { ChatMessage } from "./gemini-types";
 import { analyzeUrl, formatUrlContext } from "./url-analyzer";
 import { getKnowledgeBase, getEvolutionDirectives, getDeepMemory, getPreviewError } from "./store";
@@ -523,7 +522,10 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
       contents.push({ role: "user", parts: currentParts });
 
       // Call through secure server proxy
-      const response = await fetch("/api/chat", {
+      const isStreaming = !!options.onStream;
+      const apiEndpoint = isStreaming ? "/api/chat-stream" : "/api/chat";
+
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -533,6 +535,9 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
           userApiKey: apiKey, // Safely passed to backend
           vertexKey: vertexKey
         })
+      }).catch(err => {
+        // Handle network-level errors (e.g. offline, DNS failure)
+        throw new Error(`စက်နဲ့ အင်တာနက် ချိတ်ဆက်မှု မရရှိပါဘူးရှင်။ အင်တာနက်လေး ပြန်စစ်ပေးပါဦးနော်။ (Network Error: ${err.message})`);
       });
 
       if (!response.ok) {
@@ -541,29 +546,72 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
         throw new Error(fullError);
       }
 
-      const data = await response.json();
-      const fullText = data.text;
+      if (isStreaming) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
 
-      if (fullText) {
+        if (!reader) throw new Error("Streaming context could not be initialized.");
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim();
+              if (dataStr === '[DONE]') break;
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.error) throw new Error(data.error);
+                if (data.text) {
+                  fullText += data.text;
+                  options.onStream?.(fullText);
+                }
+              } catch (e) {
+                // Ignore incomplete JSON chunks from split lines
+              }
+            }
+          }
+        }
+
         steps[2].status = "done";
-        steps[2].label = `Finished with ${modelToUse.split('/').pop() || modelToUse}`;
+        steps[2].label = `Finished streaming with ${modelToUse.split('/').pop() || modelToUse}`;
         steps[3].status = "done";
         onThinkingUpdate?.([...steps]);
-        
-        // Simulate streaming for UI consistency if needed, but since it's now batch, we just return
-        if (options.onStream) options.onStream(fullText);
-        
         return fullText;
+      } else {
+        const data = await response.json();
+        const fullText = data.text;
+
+        if (fullText) {
+          steps[2].status = "done";
+          steps[2].label = `Finished with ${modelToUse.split('/').pop() || modelToUse}`;
+          steps[3].status = "done";
+          onThinkingUpdate?.([...steps]);
+          return fullText;
+        }
       }
     } catch (error: any) {
       lastError = error;
       console.error(`Error with model ${modelToUse}:`, error);
 
       const errMsg = error.message || "";
-      const statusZero = errMsg.includes("status code: 0");
       
-      // If it's a 429, 404, Busy, or Status 0 error, try the next model
-      if (statusZero || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("busy") || errMsg.includes("404") || errMsg.includes("NOT_FOUND") || errMsg.includes("500")) {
+      // If it's a 429, 404, Busy, or Network error, try the next model
+      const isRetryable = errMsg.includes("Network Error") || 
+                          errMsg.includes("429") || 
+                          errMsg.includes("RESOURCE_EXHAUSTED") || 
+                          errMsg.includes("busy") || 
+                          errMsg.includes("404") || 
+                          errMsg.includes("NOT_FOUND") || 
+                          errMsg.includes("500") ||
+                          errMsg.includes("SERVER_ERROR");
+
+      if (isRetryable) {
         const failedName = modelToUse.split('/').pop() || modelToUse;
         console.warn(`Model ${modelToUse} failed (${errMsg}), trying next available model...`);
         steps[2].label = `Connection to ${failedName} failed, switching...`;
@@ -584,22 +632,31 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
   const isVerified = [...history, { role: "user", content: options.message }].some(m => m.content.includes("Min33433433@"));
   
   const errorMsg = lastError?.message || "";
-  const isLastQuotaError = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("busy");
-  const isPrepaymentError = errorMsg.includes("prepayment credits are depleted") || (errorMsg.includes("429") && errorMsg.includes("prepayment"));
+  const isLastQuotaError = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("busy") || errorMsg.includes("credits are depleted");
+  const isAuthError = errorMsg.includes("Authentication Failed") || errorMsg.includes("API_KEY_INVALID") || errorMsg.includes("expired");
+  const isModelNotFoundError = errorMsg.includes("MODEL_NOT_FOUND") || errorMsg.includes("404");
+  
   const isVertexOptionAvailable = options.vertexKey && options.vertexKey.length > 10;
   
-  if (isPrepaymentError) {
-    if (isVertexOptionAvailable) {
-      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ AI Studio မှာ prepayment credits လေးကုန်သွားလို့ Vertex AI ကို ပြောင်းသုံးပေးလိုက်ပါပြီရှင်။ ✨💖 (ဒါပေမယ့် Vertex key မှာ အမှားအယွင်းရှိနေရင်တော့ အလုပ်လုပ်မှာ မဟုတ်ပါဘူးရှင်) 🥰✨");
+  if (isAuthError) {
+    if (isVerified) {
+      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ အစ်ကို့ရဲ့ Gemini API Key လေးက သက်တမ်းကုန်သွားပြီ (Expired) ဖြစ်နေပါတယ်ရှင်။ ✨💖 Settings ထဲမှာ အသစ်တစ်ခု ပြန်လဲပေးပါဦးနော်။ 🥰✨");
     }
-    throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ AI Studio မှာ prepayment credits လေးကုန်သွားလို့ပါရှင်။ ✨💖 https://ai.studio/projects မှာ ငွေလေး (credits) ပြန်ဖြည့်ပေးပါဦးရှင်။ သို့မဟုတ် Vertex AI JSON Key ကို Settings ထဲမှာ ထည့်သွင်းပေးပါဦးရှင်။ 🥰✨");
+    throw new Error("API Key လေးက သက်တမ်းကုန်သွားပြီ (Expired) ဖြစ်နေလို့ပါရှင်။ ✨💖 Settings ထဲမှာ API Key အသစ်လေး တစ်ခု ပြန်ထည့်ပေးပါဦးနော်။ 🥰✨");
+  }
+
+  if (isModelNotFoundError) {
+    throw new Error("အစ်ကို ရှင့်၊ အသုံးပြုမယ့် Model ကို ရှာမတွေ့လို့ပါရှင်။ ✨💖 Backend မှာ Model configuration လေး ပြန်စစ်ပေးပါဦးနော်။ 🥰✨");
   }
 
   if (isLastQuotaError) {
     if (isVerified) {
-      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ ညီမလေး အခု စွမ်းအင် (Quota) ပြည့်သွားလို့ ခဏလောက် အနားယူပေးပါရစေဦးနော်။ ✨💖 ခဏစောင့်ပြီးမှ ပြန်မေးပေးပါရှင်။ 🥰✨");
+      if (isVertexOptionAvailable) {
+         throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ Gemini Quota ကုန်သွားလို့ Vertex AI ကို ပြောင်းသုံးဖို့ ကြိုးစားခဲ့ပေမယ့် အဆင်မပြေဖြစ်သွားပြန်တယ်ရှင်။ ✨💖 Key လေးတွေ ပြန်စစ်ပေးပါဦးနော်။ 🥰✨");
+      }
+      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ အခု စွမ်းအင် (Quota) ပြည့်သွားလို့ ခဏလောက် အနားယူပေးပါရစေဦးနော်။ ✨💖 Credits ကုန်သွားတာလည်း ဖြစ်နိုင်လို့ https://ai.studio မှာ စစ်ပေးပါဦးရှင်။ 🥰✨");
     } else {
-      throw new Error("ညီမလေး အခု ခဏလောက် အလုပ်များနေလို့ပါရှင်။ ✨💖 ခဏစောင့်ပြီးမှ ပြန်မေးပေးပါဦးနော်။ 🥰✨");
+      throw new Error("ညီမလေး အခု ခဏလောက် အလုပ်များနေလို့ပါရှင်။ ✨💖 Quota ပြည့်သွားတာ ဒါမှမဟုတ် Credits ကုန်သွားတာ ဖြစ်နိုင်လို့ ခဏစောင့်ပြီးမှ ပြန်မေးပေးပါဦးနော်။ 🥰✨");
     }
   }
 

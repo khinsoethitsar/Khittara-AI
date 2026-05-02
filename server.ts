@@ -275,12 +275,13 @@ async function startServer() {
 
       const genAI = new GoogleGenerativeAI(apiKey);
       
-      // Map to latest stable known-working names for AI Studio
+      // Map to latest stable known-working names for AI Studio (Standard Aliases)
       let sdkModelName = cleanModelName;
-      if (sdkModelName === "gemini-1.5-flash") sdkModelName = "gemini-1.5-flash-002";
-      if (sdkModelName === "gemini-2.0-flash") sdkModelName = "gemini-2.0-flash-001";
-      if (sdkModelName === "gemini-1.5-pro") sdkModelName = "gemini-1.5-pro-002";
-      if (sdkModelName === "gemini-2.0-flash-lite-preview") sdkModelName = "gemini-2.0-flash-lite-preview-02-05";
+      // Use original cleaner aliases for AI Studio v1beta to avoid 404s
+      if (sdkModelName.includes("2.0-flash-lite")) sdkModelName = "gemini-2.0-flash-lite-preview-02-05";
+      else if (sdkModelName.includes("2.0-flash")) sdkModelName = "gemini-2.0-flash";
+      else if (sdkModelName.includes("1.5-flash")) sdkModelName = "gemini-1.5-flash-latest";
+      else if (sdkModelName.includes("1.5-pro")) sdkModelName = "gemini-1.5-pro-latest";
 
       console.log(`[Gemini Proxy] Using SDK Model Name: ${sdkModelName}`);
 
@@ -293,7 +294,8 @@ async function startServer() {
         contents
       });
 
-      const text = result.response.text();
+      const response = result.response;
+      const text = response.text();
 
       if (!text) {
         throw new Error("Empty response from Gemini API");
@@ -302,6 +304,7 @@ async function startServer() {
       res.json({ text });
     } catch (error: any) {
       const errMsg = error.message || String(error);
+      const status = error.status || (error.response?.status) || 500;
       
       // Detailed error logging for debugging (filtered)
       let logMsg = errMsg;
@@ -310,24 +313,184 @@ async function startServer() {
         if (s) logMsg = logMsg.replace(new RegExp(s, 'g'), "[HIDDEN]");
       });
       
-      console.error("Gemini Proxy Error:", logMsg);
+      console.error(`[Chat API Error] Status: ${status}, Message: ${logMsg}`);
 
-      // Handle specific error codes
-      if (errMsg.includes("NOT_FOUND") || errMsg.includes("404")) {
+      // Handle specific error codes with user-friendly messages
+      if (status === 404 || errMsg.includes("NOT_FOUND")) {
         return res.status(404).json({ 
           error: "Model not found or API version mismatch. Please check your model configuration.",
+          code: "MODEL_NOT_FOUND",
           details: logMsg 
         });
       }
 
-      if (errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("429")) {
+      if (status === 429 || errMsg.includes("RESOURCE_EXHAUSTED")) {
         return res.status(429).json({ 
           error: "RESOURCE_EXHAUSTED",
-          details: "Your prepayment credits are depleted. Please check AI Studio billing or use Vertex AI." 
+          code: "QUOTA_EXCEEDED",
+          details: "Your prepayment credits are depleted or rate limit reached. Please check AI Studio billing or use Vertex AI." 
         });
       }
 
-      res.status(error.status || 500).json({ error: "Gemini Service Error", details: logMsg });
+      if (status === 401 || status === 403 || status === 400 && errMsg.includes("API_KEY_INVALID") || errMsg.includes("expired")) {
+        return res.status(401).json({
+          error: "Authentication Failed",
+          code: "AUTH_ERROR",
+          details: "The provided API key is invalid, expired, or lacks required permissions. Please renew your API key in Settings."
+        });
+      }
+
+      if (status >= 500) {
+        return res.status(status).json({
+          error: "Gemini Service Error",
+          code: "SERVER_ERROR",
+          details: "The Google AI service is currently overloaded or experiencing issues. Please try again in secondary mode."
+        });
+      }
+
+      res.status(status).json({ error: "Gemini Proxy Failure", details: logMsg });
+    }
+  });
+
+  // Streaming Gemini Proxy
+  app.post("/api/chat-stream", async (req, res) => {
+    try {
+      const { model: modelName, contents, systemInstruction, userApiKey, vertexKey: clientVertexKey } = req.body;
+      let apiKey = userApiKey || process.env.GEMINI_API_KEY;
+      
+      let isVertex = false;
+      let vertexConfig: any = null;
+
+      console.log(`[Stream Server] Chat request. Model: ${modelName}. Client Vertex: ${!!clientVertexKey}. API Key: ${!!apiKey}`);
+
+      // 1. Check if clientVertexKey is provided (highest priority)
+      if (clientVertexKey) {
+        try {
+          vertexConfig = typeof clientVertexKey === 'string' && clientVertexKey.trim().startsWith('{') 
+            ? JSON.parse(clientVertexKey) : clientVertexKey;
+          
+          if (vertexConfig && (vertexConfig.project_id || vertexConfig.projectId)) {
+            isVertex = true;
+          }
+        } catch (e) {
+          console.warn("[Stream Server] Invalid clientVertexKey format");
+        }
+      }
+
+      // 2. Secondary: Check if userApiKey is a Vertex JSON
+      if (!isVertex && apiKey && typeof apiKey === 'string' && apiKey.trim().startsWith('{')) {
+        try {
+          vertexConfig = JSON.parse(apiKey);
+          if (vertexConfig.project_id || vertexConfig.projectId) {
+            isVertex = true;
+          }
+        } catch (e) {
+          isVertex = false;
+        }
+      }
+
+      const cleanModelName = modelName.replace(/^models\//, "");
+
+      if (isVertex) {
+        console.log(`[Vertex AI Stream] Mode active. Model: ${cleanModelName}`);
+        apiKey = null; // Ensure we don't try Gemini fallback inside the loop if Vertex is requested
+
+        const projectId = vertexConfig.project_id || vertexConfig.projectId;
+        const location = vertexConfig.location_id || "us-central1"; 
+        
+        let vertexModel = "gemini-1.5-flash-002";
+        if (cleanModelName.includes("2.0")) {
+          vertexModel = "gemini-2.0-flash-001";
+        } else if (cleanModelName.includes("pro")) {
+          vertexModel = "gemini-1.5-pro-002";
+        }
+        
+        const endpoint = `projects/${projectId}/locations/${location}/publishers/google/models/${vertexModel}`;
+
+        const client = new PredictionServiceClient({
+          credentials: {
+            client_email: vertexConfig.client_email,
+            private_key: vertexConfig.private_key,
+          },
+          projectId,
+        });
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const request = {
+          endpoint,
+          contents: contents.map((c: any) => ({
+            role: c.role === "model" ? "model" : "user",
+            parts: c.parts.map((p: any) => ({ text: p.text }))
+          })),
+          systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined
+        };
+
+        const stream = client.serverStreamingPredict(request);
+        
+        stream.on('data', (response) => {
+          const text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (text) {
+            res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          }
+        });
+
+        stream.on('end', () => {
+          res.write('data: [DONE]\n\n');
+          res.end();
+        });
+
+        stream.on('error', (err) => {
+          console.error("[Vertex Stream Error]:", err);
+          res.write(`data: ${JSON.stringify({ error: err.message || "Vertex Streaming failed" })}\n\n`);
+          res.end();
+        });
+
+        return;
+      }
+
+      // Gemini AI Studio Path
+      if (!apiKey) {
+        return res.status(401).json({ error: "Missing API Key" });
+      }
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      const genAI = new GoogleGenerativeAI(apiKey);
+      
+      // Use standard aliases to avoid version-specific 404s in AI Studio
+      let sdkModelName = "gemini-1.5-flash-latest"; 
+      if (cleanModelName.includes("2.0-flash-lite")) sdkModelName = "gemini-2.0-flash-lite-preview-02-05";
+      else if (cleanModelName.includes("2.0-flash")) sdkModelName = "gemini-2.0-flash";
+      else if (cleanModelName.includes("1.5-pro")) sdkModelName = "gemini-1.5-pro-latest";
+      else if (cleanModelName.includes("1.5-flash")) sdkModelName = "gemini-1.5-flash-latest";
+
+      console.log(`[Gemini Stream] Using SDK Model Name: ${sdkModelName}`);
+
+      const modelInstance = genAI.getGenerativeModel({ 
+        model: sdkModelName, 
+        systemInstruction: systemInstruction || undefined
+      });
+
+      const result = await modelInstance.generateContentStream({
+        contents
+      });
+
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+      }
+      
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error: any) {
+      console.error("[Stream API Error]:", error.message);
+      res.write(`data: ${JSON.stringify({ error: error.message || "Streaming failed" })}\n\n`);
+      res.end();
     }
   });
 
