@@ -169,7 +169,9 @@ async function startServer() {
       let isVertex = false;
       let vertexConfig: any = null;
 
-      // 1. Check if clientVertexKey is provided (higher priority if intended)
+      console.log(`[Server] Chat request received. Model: ${model}. Client Vertex Key present: ${!!clientVertexKey}. API Key present: ${!!apiKey}`);
+
+      // 1. Check if clientVertexKey is provided (highest priority)
       if (clientVertexKey) {
         try {
           if (typeof clientVertexKey === 'string' && clientVertexKey.trim().startsWith('{')) {
@@ -178,28 +180,35 @@ async function startServer() {
             vertexConfig = clientVertexKey;
           }
           
-          if (vertexConfig && vertexConfig.project_id && vertexConfig.private_key) {
+          if (vertexConfig && (vertexConfig.project_id || vertexConfig.projectId)) {
             isVertex = true;
+            console.log("[Server] Vertex AI Config detected from client parameters.");
           }
         } catch (e) {
-          console.warn("Invalid clientVertexKey provided");
+          console.warn("[Server] Failed to parse clientVertexKey:", e);
         }
       }
 
-      // 2. Fallback: Check if userApiKey itself is a Vertex JSON
+      // 2. Secondary: Check if userApiKey itself is a Vertex JSON
       if (!isVertex && apiKey && typeof apiKey === 'string' && apiKey.trim().startsWith('{')) {
         try {
           vertexConfig = JSON.parse(apiKey);
-          if (vertexConfig.project_id && vertexConfig.private_key) {
+          if (vertexConfig.project_id || vertexConfig.projectId) {
             isVertex = true;
+            console.log("[Server] Vertex AI Config detected within API Key field.");
           }
         } catch (e) {
           isVertex = false;
         }
       }
 
+      // Priority logic: If Vertex is available, use it (as Gemini credits are depleted)
+      if (isVertex) {
+        apiKey = null; 
+      }
+
       if (!isVertex && !apiKey) {
-        return res.status(401).json({ error: "API Key or Vertex AI Credentials required." });
+        return res.status(401).json({ error: "Missing API Key or Vertex AI Credentials." });
       }
 
       // Standardize model name
@@ -212,8 +221,15 @@ async function startServer() {
         const projectId = vertexConfig.project_id;
         const location = vertexConfig.location_id || "us-central1"; 
         
-        // Vertex AI Model path: projects/{project}/locations/{location}/publishers/google/models/{model}
-        const vertexModel = cleanModelName.includes("2.0") ? "gemini-2.0-flash-001" : "gemini-1.5-flash-002";
+        // Map to Vertex-specific stable model IDs
+        let vertexModel = "gemini-1.5-flash-002";
+        if (cleanModelName.includes("2.0")) {
+          vertexModel = "gemini-2.0-flash-001";
+        } else if (cleanModelName.includes("pro")) {
+          vertexModel = "gemini-1.5-pro-002";
+        }
+        
+        console.log(`[Vertex AI Proxy] Mapping ${cleanModelName} -> ${vertexModel}`);
         
         const endpoint = `projects/${projectId}/locations/${location}/publishers/google/models/${vertexModel}`;
 
@@ -258,9 +274,19 @@ async function startServer() {
       console.log(`[Gemini Proxy] Generating content with model: ${cleanModelName}`);
 
       const genAI = new GoogleGenerativeAI(apiKey);
+      
+      // Map to latest stable known-working names for AI Studio
+      let sdkModelName = cleanModelName;
+      if (sdkModelName === "gemini-1.5-flash") sdkModelName = "gemini-1.5-flash-002";
+      if (sdkModelName === "gemini-2.0-flash") sdkModelName = "gemini-2.0-flash-001";
+      if (sdkModelName === "gemini-1.5-pro") sdkModelName = "gemini-1.5-pro-002";
+      if (sdkModelName === "gemini-2.0-flash-lite-preview") sdkModelName = "gemini-2.0-flash-lite-preview-02-05";
+
+      console.log(`[Gemini Proxy] Using SDK Model Name: ${sdkModelName}`);
+
       const modelInstance = genAI.getGenerativeModel({ 
-        model: cleanModelName, 
-        systemInstruction: systemInstruction ? { role: 'system', parts: [{ text: systemInstruction }] } : undefined
+        model: sdkModelName, 
+        systemInstruction: systemInstruction || undefined
       });
       
       const result = await modelInstance.generateContent({

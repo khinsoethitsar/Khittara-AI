@@ -58,37 +58,37 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // 3. Check for specific reasoning requests
   const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
 
-  // Priority stack focusing on Gemini 2.0 Flash
+  // Priority stack focusing on stable models
   if (isCoding || isReasoning || hasFiles) {
     return [
-      "models/gemini-2.0-flash",
-      "models/gemini-1.5-pro",
-      "models/gemini-1.5-flash",
-      "models/gemini-1.5-pro-latest"
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-2.0-flash-lite-preview"
     ];
   }
 
   if (isCreativeHeader) {
     return [
-      "models/gemini-2.0-flash",
-      "models/gemini-1.5-flash",
-      "models/gemini-1.5-pro"
+      "gemini-1.5-pro",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash"
     ];
   }
 
   // Default to Gemini 2.0 Flash for speed and intelligence
   return [
-    "models/gemini-2.0-flash",
-    "models/gemini-1.5-flash",
-    "models/gemini-2.0-flash-lite-preview-02-05"
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite-preview"
   ];
 }
 
 export const PREFERRED_MODELS = [
-  "models/gemini-2.0-flash",
-  "models/gemini-1.5-flash",
-  "models/gemini-1.5-pro",
-  "models/gemini-2.0-flash-lite-preview-02-05"
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-2.0-flash-lite-preview"
 ];
 
 export const OPENROUTER_MODELS = [
@@ -585,10 +585,14 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
   
   const errorMsg = lastError?.message || "";
   const isLastQuotaError = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("busy");
-  const isPrepaymentError = errorMsg.includes("prepayment credits are depleted");
+  const isPrepaymentError = errorMsg.includes("prepayment credits are depleted") || (errorMsg.includes("429") && errorMsg.includes("prepayment"));
+  const isVertexOptionAvailable = options.vertexKey && options.vertexKey.length > 10;
   
   if (isPrepaymentError) {
-    throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ AI Studio မှာ prepayment credits လေးကုန်သွားလို့ပါရှင်။ ✨💖 https://ai.studio/projects မှာ ငွေလေး (credits) ပြန်ဖြည့်ပေးမှ ညီမလေး ဆက်အလုပ်လုပ်လို့ရမှာပါရှင်။ 🥰✨");
+    if (isVertexOptionAvailable) {
+      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ AI Studio မှာ prepayment credits လေးကုန်သွားလို့ Vertex AI ကို ပြောင်းသုံးပေးလိုက်ပါပြီရှင်။ ✨💖 (ဒါပေမယ့် Vertex key မှာ အမှားအယွင်းရှိနေရင်တော့ အလုပ်လုပ်မှာ မဟုတ်ပါဘူးရှင်) 🥰✨");
+    }
+    throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ AI Studio မှာ prepayment credits လေးကုန်သွားလို့ပါရှင်။ ✨💖 https://ai.studio/projects မှာ ငွေလေး (credits) ပြန်ဖြည့်ပေးပါဦးရှင်။ သို့မဟုတ် Vertex AI JSON Key ကို Settings ထဲမှာ ထည့်သွင်းပေးပါဦးရှင်။ 🥰✨");
   }
 
   if (isLastQuotaError) {
