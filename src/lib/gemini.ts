@@ -57,56 +57,37 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // 3. Check for specific reasoning requests
   const isReasoning = prompt.includes("think") || prompt.includes("reason") || prompt.includes("analyze") || prompt.includes("calculate");
 
-  // Priority stack focusing on Gemini 3 Flash Preview as requested
+  // Priority stack focusing on Gemini 2.0 Flash as requested
   if (isCoding || isReasoning || hasFiles) {
     return [
-      "models/gemini-3-flash-preview",
-      "models/gemini-1.5-pro",
-      "models/gemini-2.0-flash",
-      "models/gemini-3.1-pro-preview",
-      "models/gemini-3-pro-preview",
-      "models/gemini-2.5-pro",
-      "models/gemini-pro-latest",
-      "models/gemini-1.5-flash"
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-2.0-flash-exp"
     ];
   }
 
   if (isCreativeHeader) {
     return [
-      "models/gemini-3-flash-preview",
-      "models/gemini-1.5-flash",
-      "models/gemini-3-pro-preview",
-      "models/gemini-2.5-pro",
-      "models/gemini-2.5-flash",
-      "models/gemini-2.0-flash",
-      "models/gemini-flash-latest"
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro"
     ];
   }
 
-  // Default to Gemini 3 Flash for speed and intelligence
+  // Default to Gemini 2.0 Flash for speed and intelligence
   return [
-    "models/gemini-3-flash-preview",
-    "models/gemini-1.5-flash",
-    "models/gemini-3.1-flash-lite-preview",
-    "models/gemini-3-flash-preview",
-    "models/gemini-2.5-flash",
-    "models/gemini-2.0-flash",
-    "models/gemini-flash-lite-latest",
-    "models/gemini-flash-latest"
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite-preview"
   ];
 }
 
 export const PREFERRED_MODELS = [
-  "models/gemini-3-flash-preview",
-  "models/gemini-1.5-flash",
-  "models/gemini-1.5-pro",
-  "models/gemini-3.1-pro-preview",
-  "models/gemini-3.1-flash-lite-preview",
-  "models/gemini-3-flash-preview",
-  "models/gemini-2.5-pro",
-  "models/gemini-2.5-flash",
-  "models/gemini-pro-latest",
-  "models/gemini-flash-latest"
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-2.0-flash-lite-preview"
 ];
 
 export const OPENROUTER_MODELS = [
