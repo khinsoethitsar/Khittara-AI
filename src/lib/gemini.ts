@@ -553,7 +553,8 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server returned ${response.status}`);
+        const fullError = errorData.details ? `${errorData.error}: ${errorData.details}` : (errorData.error || `Server returned ${response.status}`);
+        throw new Error(fullError);
       }
 
       const data = await response.json();
