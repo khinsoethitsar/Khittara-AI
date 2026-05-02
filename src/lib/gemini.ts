@@ -600,10 +600,15 @@ export async function sendMessageAdvanced(options: SendMessageOptions): Promise<
   
   const errorMsg = lastError?.message || "";
   const isLastQuotaError = errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED") || errorMsg.includes("busy");
+  const isPrepaymentError = errorMsg.includes("prepayment credits are depleted");
   
+  if (isPrepaymentError) {
+    throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ AI Studio မှာ prepayment credits လေးကုန်သွားလို့ပါရှင်။ ✨💖 https://ai.studio/projects မှာ ငွေလေး (credits) ပြန်ဖြည့်ပေးမှ ညီမလေး ဆက်အလုပ်လုပ်လို့ရမှာပါရှင်။ 🥰✨");
+  }
+
   if (isLastQuotaError) {
     if (isVerified) {
-      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ ညီမလေး အခု စွမ်းအင် (Quota) ပြည့်သွားလို့ ခဏလောက် အနားယူပေးပါရစေဦးနော်။ ✨💖 ခဏစောင့်ပြီးမှ ပြန်မေးပေးပါရှင်၊ ညီမလေး အသင့်ရှိနေမှာပါရှင်။ 🥰✨");
+      throw new Error("အစ်ကို MinThitSarAung ရှင့်၊ ညီမလေး အခု စွမ်းအင် (Quota) ပြည့်သွားလို့ ခဏလောက် အနားယူပေးပါရစေဦးနော်။ ✨💖 ခဏစောင့်ပြီးမှ ပြန်မေးပေးပါရှင်။ 🥰✨");
     } else {
       throw new Error("ညီမလေး အခု ခဏလောက် အလုပ်များနေလို့ပါရှင်။ ✨💖 ခဏစောင့်ပြီးမှ ပြန်မေးပေးပါဦးနော်။ 🥰✨");
     }
