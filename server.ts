@@ -280,8 +280,8 @@ async function startServer() {
       // Use original cleaner aliases for AI Studio v1beta to avoid 404s
       if (sdkModelName.includes("2.0-flash-lite")) sdkModelName = "gemini-2.0-flash-lite-preview-02-05";
       else if (sdkModelName.includes("2.0-flash")) sdkModelName = "gemini-2.0-flash";
-      else if (sdkModelName.includes("1.5-flash")) sdkModelName = "gemini-1.5-flash-latest";
-      else if (sdkModelName.includes("1.5-pro")) sdkModelName = "gemini-1.5-pro-latest";
+      else if (sdkModelName.includes("1.5-flash")) sdkModelName = "gemini-1.5-flash";
+      else if (sdkModelName.includes("1.5-pro")) sdkModelName = "gemini-1.5-pro";
 
       console.log(`[Gemini Proxy] Using SDK Model Name: ${sdkModelName}`);
 
@@ -463,11 +463,11 @@ async function startServer() {
       const genAI = new GoogleGenerativeAI(apiKey);
       
       // Use standard aliases to avoid version-specific 404s in AI Studio
-      let sdkModelName = "gemini-1.5-flash-latest"; 
+      let sdkModelName = "gemini-1.5-flash"; 
       if (cleanModelName.includes("2.0-flash-lite")) sdkModelName = "gemini-2.0-flash-lite-preview-02-05";
       else if (cleanModelName.includes("2.0-flash")) sdkModelName = "gemini-2.0-flash";
-      else if (cleanModelName.includes("1.5-pro")) sdkModelName = "gemini-1.5-pro-latest";
-      else if (cleanModelName.includes("1.5-flash")) sdkModelName = "gemini-1.5-flash-latest";
+      else if (cleanModelName.includes("1.5-pro")) sdkModelName = "gemini-1.5-pro";
+      else if (cleanModelName.includes("1.5-flash")) sdkModelName = "gemini-1.5-flash";
 
       console.log(`[Gemini Stream] Using SDK Model Name: ${sdkModelName}`);
 
