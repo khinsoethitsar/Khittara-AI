@@ -398,7 +398,11 @@ export default function App() {
           setDeepMemory(updatedMemory as any);
           
           // Save to Firestore
-          await setDoc(doc(db, "memories", user.uid), updatedMemory);
+          try {
+            await setDoc(doc(db, "memories", user.uid), updatedMemory);
+          } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, `memories/${user.uid}`);
+          }
         }
       } catch (err) {
         console.error("Memory Extraction Execution Error:", err);

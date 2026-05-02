@@ -94,7 +94,13 @@ export async function getCreatorMemories(): Promise<CreatorMemory[]> {
       const timeB = b.timestamp?.seconds || 0;
       return timeB - timeA;
     });
-  } catch (error) {
+  } catch (error: any) {
+    // If it's a permission error, we just return empty array silently to not disturb the user
+    const message = error.message || String(error);
+    if (message.includes('permission') || message.includes('insufficient')) {
+      return [];
+    }
+    
     console.error("Error getting creator memories:", error);
     try {
       handleFirestoreError(error, OperationType.GET, COLLECTION_NAME);
