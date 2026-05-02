@@ -174,44 +174,36 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
                               className="w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin"
                             />
                           ) : (
-                            <textarea
-                              value={vertexKey}
-                              onChange={(e) => setVertexKeyLocal(e.target.value)}
-                              placeholder='{ "project_id": "...", "private_key": "...", ... }'
-                              rows={10}
-                              className="w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border border-purple-300 dark:border-purple-900/50 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin"
-                            />
+                            <div className="space-y-3">
+                              <textarea
+                                value={vertexKey}
+                                onChange={(e) => setVertexKeyLocal(e.target.value)}
+                                placeholder='{ "project_id": "...", "private_key": "...", ... }'
+                                rows={8}
+                                className="w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border border-purple-300 dark:border-purple-900/50 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin"
+                              />
+                              
+                              <div className="flex items-center justify-between gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-2xl">
+                                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                                  JSON ဖိုင်ရှိရင် ဒီမှာ တင်ပေးပါရှင် ✨
+                                </span>
+                                <label className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-all shadow-md active:scale-95">
+                                  <Upload size={14} />
+                                  <span>Upload JSON Key</span>
+                                  <input 
+                                    type="file" 
+                                    accept=".json,application/json" 
+                                    onChange={handleFileUpload}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+                            </div>
                           )}
                           <Key className={cn(
                             "absolute w-5 h-5 left-4 top-4 transition-colors",
                             keyMode === 'vertex' ? "text-purple-400" : "text-zinc-400"
                           )} />
-                          
-                          {keyMode === 'vertex' && (
-                            <div className="absolute top-3 right-3 flex flex-col gap-2">
-                              {/* Pulse Indicator */}
-                              <div className="flex justify-end">
-                                <span className="flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
-                                </span>
-                              </div>
-                              
-                              {/* File Upload Button */}
-                              <label className="p-2 bg-purple-100 dark:bg-purple-900 shadow-md rounded-xl cursor-pointer hover:bg-purple-200 dark:hover:bg-purple-800 transition-all border border-purple-200 dark:border-purple-700 group">
-                                <Upload size={16} className="text-purple-600 dark:text-purple-300" />
-                                <input 
-                                  type="file" 
-                                  accept=".json,application/json" 
-                                  onChange={handleFileUpload}
-                                  className="hidden" 
-                                />
-                                <div className="absolute right-full mr-2 top-0 bg-zinc-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                  Upload JSON File
-                                </div>
-                              </label>
-                            </div>
-                          )}
                         </div>
                         
                         <div className="flex items-start gap-2 px-1">
