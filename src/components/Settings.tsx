@@ -101,28 +101,44 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
                   </div>
 
                   <div className="space-y-4">
-                    <div>
-                      <label className="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 flex justify-between items-center">
-                        <span>Google Gemini API Key / Vertex AI JSON</span>
-                        {apiKey.trim().startsWith('{') && (
-                          <span className="text-[10px] px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full font-bold animate-pulse">
-                            Vertex AI Detected ✨
-                          </span>
-                        )}
-                      </label>
-                      <div className="relative">
-                        <textarea
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="Paste API Key or Service Account JSON here..."
-                          rows={apiKey.trim().startsWith('{') ? 5 : 2}
-                          className="w-full px-4 py-3 pl-11 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-hide"
-                        />
-                        <Key className="absolute w-5 h-5 left-4 top-4 text-zinc-400" />
+                    <div className="space-y-5">
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700 rounded-3xl space-y-3">
+                        <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 flex justify-between items-center px-1">
+                          <div className="flex items-center gap-2">
+                            <Sparkles size={14} className="text-blue-500" />
+                            <span>AI Configuration</span>
+                          </div>
+                          {apiKey.trim().startsWith('{') ? (
+                            <span className="text-[10px] px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full font-bold animate-pulse border border-purple-200">
+                              Vertex AI JSON Detected ✨
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full font-bold">
+                              AI Studio Key Mode
+                            </span>
+                          )}
+                        </label>
+                        
+                        <div className="relative">
+                          <textarea
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder="Paste Google AI Studio API Key OR Vertex AI Service Account JSON here..."
+                            rows={apiKey.trim().startsWith('{') ? 8 : 3}
+                            className="w-full px-4 py-3 pl-11 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700"
+                          />
+                          <Key className="absolute w-5 h-5 left-4 top-4 text-zinc-400" />
+                        </div>
+                        
+                        <div className="flex items-start gap-2 px-1">
+                          <div className="mt-0.5 p-1 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+                            <Sparkles size={12} className="text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <p className="text-[10px] text-zinc-500 leading-relaxed">
+                            အစ်ကို MinThitSarAung ရှင့်၊ ဒီနေရာမှာ standard <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline font-bold">API Key</a> ရော၊ <span className="text-purple-600 font-bold">Vertex AI Service Account JSON</span> ပါ တစ်ခါတည်း ကူးထည့်လို့ရပါတယ်ရှင်။ ညီမလေးက အလိုအလျောက် ခွဲခြားသိရှိပေးမှာပါရှင်။ 🥰✨
+                          </p>
+                        </div>
                       </div>
-                      <p className="mt-2 text-[10px] text-zinc-500">
-                        Supports standard <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline">API Keys</a> and Vertex AI Service Account JSON.
-                      </p>
                     </div>
 
                     <div>
