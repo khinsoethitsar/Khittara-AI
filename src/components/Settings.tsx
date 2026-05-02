@@ -102,21 +102,26 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onSave }) => {
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        Google Gemini API Key
+                      <label className="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 flex justify-between items-center">
+                        <span>Google Gemini API Key / Vertex AI JSON</span>
+                        {apiKey.trim().startsWith('{') && (
+                          <span className="text-[10px] px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full font-bold animate-pulse">
+                            Vertex AI Detected ✨
+                          </span>
+                        )}
                       </label>
                       <div className="relative">
-                        <input
-                          type="password"
+                        <textarea
                           value={apiKey}
                           onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="Enter your API Key here..."
-                          className="w-full px-4 py-3 pl-11 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
+                          placeholder="Paste API Key or Service Account JSON here..."
+                          rows={apiKey.trim().startsWith('{') ? 5 : 2}
+                          className="w-full px-4 py-3 pl-11 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white text-sm font-mono scrollbar-hide"
                         />
-                        <Key className="absolute w-5 h-5 -translate-y-1/2 left-4 top-1/2 text-zinc-400" />
+                        <Key className="absolute w-5 h-5 left-4 top-4 text-zinc-400" />
                       </div>
-                      <p className="mt-2 text-xs text-zinc-500">
-                        Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline">Google AI Studio</a>.
+                      <p className="mt-2 text-[10px] text-zinc-500">
+                        Supports standard <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 underline">API Keys</a> and Vertex AI Service Account JSON.
                       </p>
                     </div>
 
