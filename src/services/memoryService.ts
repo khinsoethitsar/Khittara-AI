@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from "../lib/gemini-types";
 import { getApiKey } from "../lib/store";
 
