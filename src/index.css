@@ -7,26 +7,49 @@
 }
 
 :root {
-  --background: #05070a;
-  --foreground: #e0e7ff;
-  --card: rgba(15, 23, 42, 0.6);
-  --card-foreground: #e0e7ff;
-  --popover: #0f172a;
-  --popover-foreground: #e0e7ff;
-  --primary-color: #8b5cf6;
+  --background: #ffffff;
+  --foreground: #111827;
+  --card: rgba(255, 255, 255, 0.7);
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary-color: #eab308;
   --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #e0e7ff;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #06b6d4;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #111827;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #eab308;
   --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.05);
+  --input: rgba(0, 0, 0, 0.05);
+  --ring: #eab308;
+  --aura-color: rgba(234, 179, 8, 0.08);
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: rgba(30, 41, 59, 0.7);
+  --card-foreground: #f8fafc;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary-color: #eab308;
+  --primary-foreground: #111827;
+  --secondary: #334155;
+  --secondary-foreground: #f8fafc;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #eab308;
+  --accent-foreground: #111827;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: rgba(255, 255, 255, 0.05);
   --input: rgba(255, 255, 255, 0.05);
-  --ring: #8b5cf6;
-  --aura-color: rgba(139, 92, 246, 0.15);
+  --ring: #eab308;
+  --aura-color: rgba(234, 179, 8, 0.08);
 }
 
 @theme {
@@ -50,6 +73,8 @@
   --color-electric-cyan: #06b6d4;
   --color-midnight: #05070a;
   --color-slate-dark: #0f172a;
+  --color-gold: #eab308;
+  --color-deep-slate: #111827;
   
   --animate-float: float 6s ease-in-out infinite;
   --animate-shimmer: shimmer 2s linear infinite;
@@ -66,28 +91,31 @@
 }
 
 .glass-panel {
-  background: rgba(15, 23, 42, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
+  background: var(--card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.1);
 }
 
-.neon-glow {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+.gold-glow {
+  box-shadow: 0 0 30px rgba(234, 179, 8, 0.25);
+}
+
+.soft-shadow {
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
 }
 
 .neon-glow-cyan {

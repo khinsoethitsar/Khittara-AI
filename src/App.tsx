@@ -163,7 +163,7 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(getActiveSessionId());
   const [tasks, setTasks] = useState<Task[]>(getTasks());
   const hasAutoLoadedLatest = useRef(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [sidebarTab, setSidebarTab] = useState<"chats" | "files" | "tasks" | "preview">("chats");
   const [isSplitView, setIsSplitView] = useState(false);
   const [mode, setMode] = useState<AiMode>(getAiMode());
@@ -836,7 +836,7 @@ export default function App() {
   return (
     <div 
       className={cn(
-        "flex h-screen bg-[#05070a] text-foreground overflow-hidden relative selection:bg-primary/30 selection:text-white transition-colors duration-1000",
+        "flex h-screen bg-white dark:bg-[#05070a] text-foreground overflow-hidden relative selection:bg-gold/30 selection:text-white transition-colors duration-1000",
         mode === "kalaung" ? "theme-kalaung" : "theme-arindama"
       )}
       style={bgImage ? { 
@@ -848,6 +848,44 @@ export default function App() {
     >
       {bgImage && <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-0" />}
       
+      {/* Floating Menu Toggle (Gold Hamburger) */}
+      <motion.div 
+        drag
+        dragMomentum={false}
+        dragConstraints={{ left: 0, right: window.innerWidth - 60, top: 0, bottom: window.innerHeight - 60 }}
+        className="fixed top-6 left-6 z-[100] cursor-grab active:cursor-grabbing lg:hidden"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="w-12 h-12 rounded-full bg-gold text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all gold-glow"
+        >
+          {isSidebarOpen ? <X size={20} /> : <div className="flex flex-col gap-1 items-center">
+            <div className="w-5 h-0.5 bg-white rounded-full" />
+            <div className="w-5 h-0.5 bg-white rounded-full" />
+            <div className="w-5 h-0.5 bg-white rounded-full" />
+          </div>}
+        </button>
+      </motion.div>
+
+      {/* Desktop Persistent Menu Toggle */}
+      <div className="hidden lg:block fixed top-6 left-6 z-[100]">
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className={cn(
+            "w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-xl border border-border group",
+            isSidebarOpen ? "bg-white text-deep-slate hover:bg-slate-50" : "bg-gold text-white gold-glow"
+          )}
+        >
+          {isSidebarOpen ? <ChevronRight size={20} className="rotate-180" /> : <div className="flex flex-col gap-1 items-center">
+            <div className="w-5 h-0.5 bg-white rounded-full" />
+            <div className="w-5 h-0.5 bg-white rounded-full" />
+            <div className="w-5 h-0.5 bg-white rounded-full" />
+          </div>}
+        </button>
+      </div>
+
       {/* Dynamic Background Aura */}
       <div className="aura-container">
         <div className={cn(

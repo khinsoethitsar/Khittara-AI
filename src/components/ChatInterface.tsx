@@ -1612,25 +1612,24 @@ ${stagedCount} architecture changes staged.
                 <div className="relative group/bubble max-w-full">
                   <div 
                     className={cn(
-                      "prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed text-[14px] md:text-[15px] relative overflow-hidden transition-all duration-300",
+                      "prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed text-[15px] relative overflow-hidden transition-all duration-300",
                       msg.role === "user" 
-                        ? "text-white/90 bg-gradient-to-br from-neon-violet/20 to-neon-violet/5 border border-neon-violet/30 shadow-[0_4px_20px_rgba(139,92,246,0.15)]" 
-                        : "text-white/80 bg-white/[0.02] border border-white/10 backdrop-blur-md shadow-xl",
-                      isLoading && idx === messages.length - 1 && msg.role === "model" && "border-primary/40 shadow-[0_0_30px_rgba(6,182,212,0.1)]"
+                        ? "text-white bg-gold gold-glow shadow-xl" 
+                        : "text-deep-slate dark:text-white/90 bg-[#f8fafc] dark:bg-[#1e293b] soft-shadow border border-black/[0.03] dark:border-white/5 shadow-xl",
+                      isLoading && idx === messages.length - 1 && msg.role === "model" && "border-gold/40 shadow-[0_0_30px_rgba(234,179,8,0.1)]"
                     )}
                     style={{ 
-                      padding: `${uiDensity * 0.75}px ${uiDensity * 1.25}px`,
+                      padding: `${Math.max(uiDensity * 1, 16)}px ${Math.max(uiDensity * 1.5, 24)}px`,
                       borderRadius: msg.role === "user" 
-                        ? `${uiDensity * 1.5}px ${uiDensity * 0.5}px ${uiDensity * 1.5}px ${uiDensity * 1.5}px`
-                        : `${uiDensity * 0.5}px ${uiDensity * 1.5}px ${uiDensity * 1.5}px ${uiDensity * 1.5}px`
+                        ? `24px 4px 24px 24px`
+                        : `4px 24px 24px 24px`
                     }}
                   >
-                    {/* Subtle Internal Pattern for User Bubble */}
-                    {msg.role === "user" && (
-                      <div className="absolute inset-0 pointer-events-none opacity-5 bg-[radial-gradient(circle_at_top_right,var(--color-neon-violet)_0%,transparent_70%)]" />
+                    {msg.role === "user" ? (
+                      <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
+                    ) : (
+                      <ReactMarkdown components={MarkdownComponents}>{msg.content}</ReactMarkdown>
                     )}
-
-                    <ReactMarkdown components={MarkdownComponents}>{msg.content}</ReactMarkdown>
                     
                     {isLoading && idx === messages.length - 1 && msg.role === "model" && (
                       <motion.div 

@@ -84,8 +84,8 @@ export default function Sidebar({
   );
 
   const modes = [
-    { id: "kalaung", name: "Ka-Laung", icon: <Sparkles className="w-3.5 h-3.5" />, color: "#EC4899" },
-    { id: "arindama", name: "Arindama", icon: <Brain className="w-3.5 h-3.5" />, color: "#D4AF37" },
+    { id: "kalaung", name: "Ka-Laung", icon: <Sparkles className="w-3.5 h-3.5" />, color: "#eab308" },
+    { id: "arindama", name: "Arindama", icon: <Brain className="w-3.5 h-3.5" />, color: "#111827" },
     { id: "twatgyi", name: "Sayar Ma Twat Gyi", icon: <Activity className="w-3.5 h-3.5" />, color: "#10B981" }
   ];
 
@@ -114,36 +114,36 @@ export default function Sidebar({
       <motion.aside 
         initial={false}
         animate={{ 
-          width: isOpen ? 280 : 0,
-          x: isOpen ? 0 : -280
+          width: isOpen ? 320 : 0,
+          x: isOpen ? 0 : -320
         }}
         className={cn(
-          "fixed lg:relative z-50 h-full bg-[#0c0c0c] border-r border-white/5 flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
+          "fixed lg:relative z-50 h-full bg-slate-50/80 dark:bg-[#0c1120]/80 backdrop-blur-2xl border-r border-black/5 dark:border-white/5 flex flex-col overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
           !isOpen && "lg:w-0 border-none"
         )}
       >
-        {/* Sidebar Header */}
+        {/* Sidebar Header - Adjusted for the floating button spacing */}
         <div 
-          className="space-y-4"
-          style={{ padding: `${uiDensity}px` }}
+          className="space-y-6 pt-24"
+          style={{ paddingLeft: `${uiDensity}px`, paddingRight: `${uiDensity}px`, paddingBottom: `${uiDensity}px` }}
         >
           <div className="relative">
             <div 
-              className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all group"
+              className="flex items-center justify-between p-3 rounded-2xl bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 cursor-pointer hover:bg-white/80 dark:hover:bg-white/10 transition-all group soft-shadow"
               onClick={() => setShowModeSwitcher(!showModeSwitcher)}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div 
-                  className="w-6 h-6 rounded-lg flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm"
                   style={{ backgroundColor: `${modes.find(m => m.id === mode)?.color}20`, color: modes.find(m => m.id === mode)?.color }}
                 >
                   {modes.find(m => m.id === mode)?.icon}
                 </div>
-                <span className="text-xs font-bold text-white/90">
+                <span className="text-xs font-bold text-deep-slate dark:text-white/90">
                   {modes.find(m => m.id === mode)?.name}
                 </span>
               </div>
-              <ChevronRight className={cn("w-3.5 h-3.5 text-white/20 group-hover:text-white transition-all", showModeSwitcher && "rotate-90")} />
+              <ChevronRight className={cn("w-4 h-4 text-slate-300 dark:text-white/20 group-hover:text-gold transition-all", showModeSwitcher && "rotate-90")} />
             </div>
 
             <AnimatePresence>
@@ -175,10 +175,10 @@ export default function Sidebar({
             </AnimatePresence>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <button 
               onClick={onNewProject}
-              className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20 transition-all group"
+              className="flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all group"
               title="Reset everything and start fresh"
             >
               <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" />
@@ -186,24 +186,24 @@ export default function Sidebar({
             </button>
             <button 
               onClick={onNewChat}
-              className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-white/5 border border-white/10 text-[11px] font-bold text-white/90 hover:bg-white/10 transition-all group"
+              className="flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-gold text-white text-[11px] font-bold hover:opacity-90 transition-all group gold-glow shadow-md shadow-gold/20"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+              <MessageSquare className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
               <span>CHAT</span>
             </button>
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex p-1 bg-white/5 rounded-xl border border-white/5">
+          <div className="flex p-1.5 bg-slate-200/50 dark:bg-white/5 rounded-2xl border border-black/5 dark:border-white/5 shadow-inner">
             <button 
               onClick={() => onTabChange("chats")}
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold transition-all",
-                activeTab === "chats" ? "bg-white/10 text-white shadow-sm" : "text-white/30 hover:text-white/50"
+                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-bold transition-all",
+                activeTab === "chats" ? "bg-white dark:bg-white/10 text-gold dark:text-white shadow-sm" : "text-slate-400 dark:text-white/30 hover:text-slate-600 dark:hover:text-white/50"
               )}
               title="Chat History"
             >
-              <MessageSquare size={14} />
+              <MessageSquare size={16} />
             </button>
             {mode === "arindama" && (
               <button 
@@ -414,15 +414,7 @@ export default function Sidebar({
         </div>
       </motion.aside>
 
-      {/* Toggle Button (Floating when closed) */}
-      {!isOpen && (
-        <button 
-          onClick={onToggle}
-          className="fixed left-4 top-4 z-50 p-2.5 bg-[#161616] border border-white/10 rounded-xl text-white/40 hover:text-white transition-all shadow-xl lg:hidden"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      )}
+      {/* Toggle Button (Removed here because it's now in App.tsx) */}
     </>
   );
 }
