@@ -27,10 +27,11 @@ export interface Task {
 }
 
 const PROMPTS_KEY = "kalaung_prompts";
-const API_KEY_KEY = "kalaung_gemini_key";
-const VERTEX_KEY_KEY = "kalaung_vertex_key";
-const OPENROUTER_API_KEY_KEY = "kalaung_openrouter_key";
-const LANG_KEY = "kalaung_lang";
+const API_KEY_KEY = "khittara_api_key";
+const VERTEX_KEY_KEY = "khittara_vertex_key";
+const MODEL_KEY = "khittara_model";
+const OPENROUTER_API_KEY_KEY = "khittara_openrouter_key";
+const LANG_KEY = "khittara_lang";
 const KB_KEY = "kalaung_knowledge_base";
 const MODE_KEY = "kalaung_ai_mode";
 const OPENAI_API_KEY_KEY = "kalaung_openai_key";
@@ -259,6 +260,22 @@ export function setOpenAiApiKey(key: string) {
   if (!isStorageAvailable()) return;
   try {
     localStorage.setItem(OPENAI_API_KEY_KEY, key);
+  } catch (e) { console.error(e); }
+}
+
+export function getCustomModel(): string {
+  if (!isStorageAvailable()) return "gemini-2.5-flash";
+  try {
+    return localStorage.getItem(MODEL_KEY) || "gemini-2.5-flash";
+  } catch {
+    return "gemini-2.5-flash";
+  }
+}
+
+export function setCustomModel(model: string) {
+  if (!isStorageAvailable()) return;
+  try {
+    localStorage.setItem(MODEL_KEY, model);
   } catch (e) { console.error(e); }
 }
 

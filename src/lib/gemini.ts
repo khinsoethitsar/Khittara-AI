@@ -1,6 +1,6 @@
 import { ChatMessage } from "./gemini-types";
 import { analyzeUrl, formatUrlContext } from "./url-analyzer";
-import { getKnowledgeBase, getEvolutionDirectives, getDeepMemory, getPreviewError } from "./store";
+import { getKnowledgeBase, getEvolutionDirectives, getDeepMemory, getPreviewError, getCustomModel } from "./store";
 import { CHARACTERS, Character } from "./characters";
 import { CreatorMemory } from "./creator-knowledge";
 
@@ -48,6 +48,10 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   const prompt = message.toLowerCase();
   const hasFiles = files && files.length > 0;
   
+  const customModel = getCustomModel();
+  const defaultBase = [];
+  if (customModel) defaultBase.push(customModel);
+
   // 1. Check for Coding or Architecture tasks
   const isCoding = prompt.includes("code") || prompt.includes("react") || prompt.includes("fix") || prompt.includes("error") || prompt.includes("debug") || mode === "arindama";
   
@@ -60,6 +64,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
   // Priority stack focusing on stable models
   if (isCoding || isReasoning || hasFiles) {
     return [
+      ...defaultBase,
       "gemini-2.0-flash",
       "gemini-1.5-flash",
       "gemini-1.5-pro",
@@ -69,6 +74,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
 
   if (isCreativeHeader) {
     return [
+      ...defaultBase,
       "gemini-1.5-pro",
       "gemini-2.0-flash",
       "gemini-1.5-flash"
@@ -77,6 +83,7 @@ function routeToBestModel(options: SendMessageOptions): string[] {
 
   // Default to Gemini 2.0 Flash for speed and intelligence
   return [
+    ...defaultBase,
     "gemini-2.0-flash",
     "gemini-1.5-flash",
     "gemini-2.0-flash-lite-preview"
